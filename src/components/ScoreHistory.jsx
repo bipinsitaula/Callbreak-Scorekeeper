@@ -1,129 +1,85 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { FiEdit2 } from 'react-icons/fi'
 import { useGameStore } from '../store'
-import { motion } from 'framer-motion'
-import { formatScore } from '../utils/helpers'
+import { formatScore, getLeaders, sumScores } from '../utils/helpers'
 import EditRoundModal from './modals/EditRoundModal'
 
 export default function ScoreHistory() {
-  const { players, rounds, getTotals } = useGameStore()
+  const players = useGameStore((s) => s.players)
+  const rounds = useGameStore((s) => s.rounds)
   const [editingRound, setEditingRound] = useState(null)
 
-  const totals = getTotals()
-  const leaderIndex = totals.length > 0 ? totals.indexOf(Math.max(...totals)) : -1
+  const totals = useMemo(() => sumScores(rounds, players.length), [rounds, players.length])
+  const leaders = getLeaders(totals)
 
-  if (rounds.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="panel text-center py-12"
-      >
-        <div className="text-3xl mb-2">📋</div>
-        <p className="text-gray-600 dark:text-gray-400">
-          No rounds played yet — submit your first round to see scores here.
-        </p>
-      </motion.div>
-    )
-  }
+  if (rounds.length === 0) return null
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="panel overflow-hidden"
-      >
+      <section className="panel" aria-labelledby="history-heading">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-            📊 Score History
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Click any round to edit that round's entries
-          </p>
+          <h2 id="history-heading" className="mb-1 text-2xl text-ink">Round by round</h2>
+          <p className="text-mute">Select a round to edit it. Each cell shows the score, then bid / tricks won.</p>
         </div>
 
-        {/* Responsive Table */}
-        <div className="overflow-x-auto">
+        <div className="-mx-1 overflow-x-auto px-1">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300 uppercase text-xs tracking-wider">
-                  Round
-                </th>
+              <tr className="border-b border-line text-xs text-mute">
+                <th scope="col" className="px-3 py-3 text-left font-bold">Round</th>
                 {players.map((name, i) => (
-                  <th
-                    key={i}
-                    className={`px-4 py-3 text-center font-semibold uppercase text-xs tracking-wider ${
-                      i === leaderIndex
-                        ? 'text-accent-600 dark:text-accent-400'
-                        : 'text-gray-600 dark:text-gray-300'
-                    }`}
-                  >
-                    {name} {i === leaderIndex ? '👑' : ''}
+                  <th key={i} scope="col" className={`px-3 py-3 text-center font-bold ${leaders.includes(i) ? 'text-accent' : ''}`}>
+                    {name}
+                    {leaders.includes(i) && <span className="sr-only"> (leading)</span>}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {/* Round Rows */}
               {rounds.map((round, roundIdx) => (
-                <motion.tr
-                  key={roundIdx}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: roundIdx * 0.05 }}
-                  className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-gray-100">
+                <tr key={roundIdx} className="border-b border-line/60 transition-colors hover:bg-raised/40">
+                  <th scope="row" className="px-3 py-3 text-left">
                     <button
+                      type="button"
                       onClick={() => setEditingRound(roundIdx)}
-                      className="text-accent-600 dark:text-accent-400 hover:underline cursor-pointer font-semibold"
+                      className="inline-flex items-center gap-1.5 rounded-md font-bold text-accent hover:underline"
                     >
-                      Round {roundIdx + 1} ✎
+                      {roundIdx + 1}
+                      <FiEdit2 className="h-3.5 w-3.5" aria-label="Edit round" />
                     </button>
-                  </td>
+                  </th>
                   {round.scores.map((score, playerIdx) => (
-                    <td key={playerIdx} className="px-4 py-3 text-center">
-                      <div
-                        className={`font-semibold ${
-                          score >= 0
-                            ? 'text-accent-600 dark:text-accent-400'
-                            : 'text-danger-500 dark:text-danger-400'
-                        }`}
-                      >
+                    <td key={playerIdx} className="px-3 py-3 text-center">
+                      <div className={`font-extrabold tabular-nums ${score >= 0 ? 'text-accent' : 'text-danger'}`}>
                         {formatScore(score)}
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {round.bids[playerIdx]}/{round.tricks[playerIdx]}
+                      <div className="text-xs tabular-nums text-mute">
+                        {round.bids[playerIdx]} / {round.tricks[playerIdx]}
                       </div>
                     </td>
                   ))}
-                </motion.tr>
+                </tr>
               ))}
 
-              {/* Totals Row */}
-              <motion.tr
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-accent-50 dark:bg-accent-900/30 border-t-2 border-accent-300 dark:border-accent-700"
-              >
-                <td className="px-4 py-3 font-bold text-accent-900 dark:text-accent-100 uppercase text-sm">
-                  Total
-                </td>
+              <tr className="bg-accent/10">
+                <th scope="row" className="rounded-l-xl px-3 py-3 text-left font-extrabold text-ink">Total</th>
                 {totals.map((total, i) => (
-                  <td key={i} className="px-4 py-3 text-center font-bold text-lg text-accent-600 dark:text-accent-400">
+                  <td
+                    key={i}
+                    className={`px-3 py-3 text-center text-lg font-extrabold tabular-nums text-ink ${
+                      i === totals.length - 1 ? 'rounded-r-xl' : ''
+                    }`}
+                  >
                     {formatScore(total)}
                   </td>
                 ))}
-              </motion.tr>
+              </tr>
             </tbody>
           </table>
         </div>
-      </motion.div>
+      </section>
 
-      {editingRound !== null && (
-        <EditRoundModal roundIndex={editingRound} onClose={() => setEditingRound(null)} />
-      )}
+      {editingRound !== null && <EditRoundModal roundIndex={editingRound} onClose={() => setEditingRound(null)} />}
     </>
   )
 }

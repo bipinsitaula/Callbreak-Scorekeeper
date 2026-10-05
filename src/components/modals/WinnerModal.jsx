@@ -1,122 +1,76 @@
+import { useMemo } from 'react'
+import { FaTrophy } from 'react-icons/fa'
+import { FiEye, FiRotateCw } from 'react-icons/fi'
 import { useGameStore } from '../../store'
 import { useToastStore } from '../../hooks/useToast'
-import { motion } from 'framer-motion'
-import { FiRotateCw } from 'react-icons/fi'
-import { formatScore } from '../../utils/helpers'
+import { formatScore, getLeaders, rankPlayers, sumScores } from '../../utils/helpers'
+import Avatar from '../Avatar'
+import Modal from '../Modal'
+import ExportButtons from '../ExportButtons'
 
-export default function WinnerModal() {
-  const { players, getTotals, resetGame } = useGameStore()
+export default function WinnerModal({ onClose }) {
+  const players = useGameStore((s) => s.players)
+  const rounds = useGameStore((s) => s.rounds)
+  const totalRounds = useGameStore((s) => s.totalRounds)
+  const resetGame = useGameStore((s) => s.resetGame)
   const { success } = useToastStore()
 
-  const totals = getTotals()
-  const maxScore = Math.max(...totals)
-  const winners = players.filter((_, i) => totals[i] === maxScore)
-  const winnerStr = winners.length > 1 ? `Tie: ${winners.join(' & ')}` : winners[0]
+  const totals = useMemo(() => sumScores(rounds, players.length), [rounds, players.length])
+  const ranked = rankPlayers(players, totals)
+  const winners = getLeaders(totals).map((i) => players[i])
+  const isTie = winners.length > 1
 
   const handleNewGame = () => {
     resetGame()
-    success('New game started!')
-  }
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.15, delayChildren: 0.2 },
-    },
-  }
-
-  const contentVariants = {
-    hidden: { scale: 0.8, opacity: 0, y: 20 },
-    visible: { scale: 1, opacity: 1, y: 0, transition: { type: 'spring', stiffness: 200 } },
+    success('Ready for a new game.')
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+    <Modal
+      onClose={onClose}
+      labelledBy="winner-title"
+      className="my-8 w-full max-w-md rounded-3xl border border-accent/30 bg-surface p-8 text-center shadow-2xl sm:p-10"
+      backdropClassName="bg-black/70 backdrop-blur-md"
     >
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="w-full max-w-md rounded-3xl border border-gray-200 bg-white p-8 text-center shadow-2xl dark:border-gray-700 dark:bg-slate-900 sm:p-12"
-      >
-        {/* Trophy Animation */}
-        <motion.div
-          variants={contentVariants}
-          animate={{ y: [0, -10, 0] }}
-          transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-          className="text-6xl mb-4"
-        >
-          🏆
-        </motion.div>
+      <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gold/15 text-gold">
+        <FaTrophy className="h-10 w-10" aria-hidden="true" />
+      </div>
 
-        {/* Title */}
-        <motion.h2
-          variants={contentVariants}
-          className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2"
-        >
-          Game Complete!
-        </motion.h2>
+      <h2 id="winner-title" className="mb-1 text-3xl text-ink">
+        {isTie ? 'It’s a tie' : `${winners[0]} wins`}
+      </h2>
+      <p className="mb-6 text-mute">
+        {isTie ? `${winners.join(' and ')} share first place` : 'Game over'} with{' '}
+        <span className="font-extrabold text-accent">{formatScore(ranked[0].score)}</span>
+      </p>
 
-        {/* Subtitle */}
-        <motion.p
-          variants={contentVariants}
-          className="mb-4 text-gray-700 dark:text-gray-200"
-        >
-          The winner is
-        </motion.p>
+      <ol className="mb-6 space-y-2 rounded-2xl border border-line bg-raised/50 p-3 text-left">
+        {ranked.map((p) => (
+          <li key={p.index} className="flex items-center justify-between gap-3 text-sm">
+            <span className="flex min-w-0 items-center gap-3 text-ink">
+              <span className="w-4 text-center font-extrabold tabular-nums text-mute">{p.rank}</span>
+              <Avatar name={p.name} seat={p.index} size="sm" />
+              <span className="truncate font-semibold">{p.name}</span>
+            </span>
+            <span className={`font-extrabold tabular-nums ${p.score >= 0 ? 'text-accent' : 'text-danger'}`}>
+              {formatScore(p.score)}
+            </span>
+          </li>
+        ))}
+      </ol>
 
-        {/* Winner Name */}
-        <motion.div
-          variants={contentVariants}
-          className="text-2xl sm:text-3xl font-bold text-accent-600 dark:text-accent-400 mb-3 min-h-12 flex items-center justify-center"
-        >
-          {winnerStr}
-        </motion.div>
+      <ExportButtons players={players} rounds={rounds} totalRounds={totalRounds} className="mb-4 justify-center" />
 
-        {/* Final Score */}
-        <motion.p
-          variants={contentVariants}
-          className="mb-8 text-sm text-gray-600 dark:text-gray-300"
-        >
-          Final Score: <span className="font-semibold text-lg text-accent-600 dark:text-accent-400">{formatScore(maxScore)}</span>
-        </motion.p>
-
-        {/* All Scores */}
-        <motion.div
-          variants={contentVariants}
-          className="mb-8 space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-slate-800"
-        >
-          {players.map((name, i) => (
-            <div key={i} className="flex justify-between items-center text-sm">
-              <span className="text-gray-700 dark:text-gray-300">{name}</span>
-              <span className={`font-semibold ${totals[i] >= 0 ? 'text-accent-600 dark:text-accent-400' : 'text-danger-500 dark:text-danger-400'}`}>
-                {formatScore(totals[i])}
-              </span>
-            </div>
-          ))}
-        </motion.div>
-
-        {/* Action Buttons */}
-        <motion.div
-          variants={contentVariants}
-          className="flex gap-3 flex-col sm:flex-row"
-        >
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleNewGame}
-            className="btn btn-primary flex-1"
-          >
-            <FiRotateCw className="w-5 h-5" />
-            Start New Game
-          </motion.button>
-        </motion.div>
-      </motion.div>
-    </motion.div>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button type="button" onClick={handleNewGame} className="btn btn-primary flex-1">
+          <FiRotateCw className="h-5 w-5" aria-hidden="true" />
+          New game
+        </button>
+        <button type="button" onClick={onClose} className="btn btn-secondary flex-1">
+          <FiEye className="h-5 w-5" aria-hidden="true" />
+          View scores
+        </button>
+      </div>
+    </Modal>
   )
 }

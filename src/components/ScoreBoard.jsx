@@ -1,110 +1,89 @@
-import { useGameStore } from '../store'
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
-import { formatScore, getPlayerInitials } from '../utils/helpers'
+import { FaCrown } from 'react-icons/fa'
+import { FiBarChart2 } from 'react-icons/fi'
+import { useGameStore } from '../store'
+import { formatScore, rankPlayers, sumScores } from '../utils/helpers'
+import Avatar from './Avatar'
+import ExportButtons from './ExportButtons'
+
+const ROW_STYLES = {
+  1: 'border-gold/50 bg-gold/10',
+  2: 'border-mute/40 bg-raised/60',
+  3: 'border-[#c2763f]/40 bg-[#c2763f]/5',
+}
+
+const BADGE_STYLES = {
+  1: 'bg-gold text-base',
+  2: 'bg-mute text-base',
+  3: 'bg-[#c2763f] text-white',
+}
 
 export default function ScoreBoard() {
-  const { players, rounds, getTotals } = useGameStore()
+  const players = useGameStore((s) => s.players)
+  const rounds = useGameStore((s) => s.rounds)
+  const totalRounds = useGameStore((s) => s.totalRounds)
 
-  const totals = getTotals()
-  const ranked = players
-    .map((name, i) => ({ name, score: totals[i], index: i }))
-    .sort((a, b) => b.score - a.score)
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 },
-    },
-  }
-
-  const itemVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: { opacity: 1, x: 0 },
-  }
+  const totals = useMemo(() => sumScores(rounds, players.length), [rounds, players.length])
+  const ranked = rankPlayers(players, totals)
+  const leadScore = ranked[0]?.score ?? 0
+  const tiedLead = ranked.filter((p) => p.rank === 1).length > 1
 
   return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-      className="panel"
-    >
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-          🏆 Current Ranking
-        </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Live leaderboard after each round
-        </p>
+    <section className="panel" aria-labelledby="ranking-heading">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 id="ranking-heading" className="mb-1 text-2xl text-ink">Standings</h2>
+          <p className="text-mute">Updates after every round.</p>
+        </div>
+        {rounds.length > 0 && <ExportButtons players={players} rounds={rounds} totalRounds={totalRounds} />}
       </div>
 
       {rounds.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="py-8 text-center text-gray-500 dark:text-gray-400"
-        >
-          <div className="text-3xl mb-2">📊</div>
-          <p>Start playing to see rankings</p>
-        </motion.div>
+        <div className="py-8 text-center text-mute">
+          <FiBarChart2 className="mx-auto mb-2 h-8 w-8" aria-hidden="true" />
+          <p>Save a round to see the standings.</p>
+        </div>
       ) : (
-        <motion.div variants={containerVariants} className="space-y-3">
-          {ranked.map((player, rank) => (
-            <motion.div
+        <ol className="space-y-3">
+          {ranked.map((player) => (
+            <motion.li
               key={player.index}
-              variants={itemVariants}
-              whileHover={{ x: 4 }}
-              className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                rank === 0
-                  ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 dark:from-yellow-900/30 dark:to-yellow-800/20 border-yellow-300 dark:border-yellow-700'
-                  : rank === 1
-                    ? 'bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-900 border-gray-300 dark:border-gray-700'
-                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+              layout
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className={`flex items-center gap-3 rounded-2xl border p-3 sm:gap-4 sm:p-4 ${
+                ROW_STYLES[player.rank] ?? 'border-line bg-raised/40'
               }`}
             >
-              {/* Rank Badge */}
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.1 * rank, type: 'spring', stiffness: 200 }}
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${
-                  rank === 0
-                    ? 'bg-yellow-400 dark:bg-yellow-500 text-yellow-900 dark:text-yellow-100'
-                    : rank === 1
-                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-gray-100'
-                      : 'bg-orange-300 dark:bg-orange-600 text-orange-900 dark:text-orange-100'
+              <div
+                aria-label={`Rank ${player.rank}`}
+                className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-extrabold ${
+                  BADGE_STYLES[player.rank] ?? 'bg-raised text-mute'
                 }`}
               >
-                {rank === 0 ? '👑' : rank + 1}
-              </motion.div>
-
-              {/* Player Avatar */}
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-500 to-accent-600 dark:from-accent-400 dark:to-accent-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                {getPlayerInitials(player.name)}
+                {player.rank === 1 ? <FaCrown className="h-3.5 w-3.5" aria-label="Rank 1" /> : player.rank}
               </div>
 
-              {/* Player Name */}
-              <div className="flex-1 font-semibold text-gray-900 dark:text-gray-100 truncate">
-                {player.name}
+              <Avatar name={player.name} seat={player.index} />
+
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-bold text-ink">{player.name}</div>
+                <div className="text-xs tabular-nums text-mute">
+                  {player.rank === 1
+                    ? tiedLead
+                      ? 'Tied for the lead'
+                      : 'Leading'
+                    : `${formatScore(leadScore - player.score).replace('+', '')} behind`}
+                </div>
               </div>
 
-              {/* Score */}
-              <motion.div
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                className={`text-lg font-bold ${
-                  player.score >= 0
-                    ? 'text-accent-600 dark:text-accent-400'
-                    : 'text-danger-500 dark:text-danger-400'
-                }`}
-              >
+              <div className={`text-xl font-extrabold tabular-nums ${player.score >= 0 ? 'text-accent' : 'text-danger'}`}>
                 {formatScore(player.score)}
-              </motion.div>
-            </motion.div>
+              </div>
+            </motion.li>
           ))}
-        </motion.div>
+        </ol>
       )}
-    </motion.div>
+    </section>
   )
 }

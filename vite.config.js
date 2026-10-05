@@ -11,5 +11,9 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     minify: 'esbuild',
-  }
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.js'],
+  },
 })

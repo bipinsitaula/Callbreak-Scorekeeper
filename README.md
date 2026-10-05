@@ -8,16 +8,30 @@ Call Break Scorekeeper is a modern, fully-featured companion app for tracking bi
 
 ### Key Features
 
-✅ **Complete Game Logic** - All original functionality preserved exactly  
-✅ **Dark/Light Theme** - Smooth theme switching with localStorage persistence  
-✅ **Real-time Scoring** - Accurate bid/trick scoring with overtrick calculations  
-✅ **Round Editing** - Edit any round's data with modal interface  
-✅ **Player Rankings** - Live leaderboard with score tracking  
-✅ **Smooth Animations** - Framer Motion for professional transitions  
-✅ **Mobile Responsive** - Fully optimized for all screen sizes  
-✅ **Automatic Persistence** - Game state saved to localStorage  
-✅ **Comprehensive Rules** - Built-in guides for all player counts  
-✅ **Form Validation** - Complete input validation and error handling  
+✅ **Two-step rounds** - Lock bids first, then enter tricks; live "tricks assigned" counter and score preview
+✅ **Tie-aware rankings** - Shared ranks and shared wins
+✅ **Exact scoring** - Scores stored as integer tenths, no floating-point drift
+✅ **Dealer rotation** - Shows who deals and who bids first
+✅ **Insights** - Score-progression chart and bidding accuracy stats
+✅ **Export** - CSV download and shareable results image
+✅ **Past games** - Finished games are archived automatically
+✅ **Installable & offline** - PWA with service worker (production build)
+✅ **Safe persistence** - Saved data is validated; old v1 saves are migrated; in-progress bids survive refreshes
+✅ **Mobile first** - Large tap targets, numeric keypad, sticky action bar
+✅ **Accessible** - Focus-trapped dialogs, Esc to close, live-region toasts, reduced-motion support
+✅ **Dark/Light theme** - Follows the OS by default
+
+## Card Table: two games
+
+The app opens on a Home hub with two games.
+
+- **Call Break** - a scorekeeper for a physical deck (everything described above).
+- **Blackjack** - a playable table against the dealer with play-money chips.
+  - Hit, stand, double, split, insurance (2:1, when the dealer shows an ace) and late surrender (half the bet back); blackjack pays 3:2; the dealer stands on all 17s.
+  - Cards come from a 6-deck shoe shuffled with `crypto.getRandomValues` and a Fisher-Yates shuffle with rejection sampling (no modulo bias), then reshuffled when about 75% is dealt.
+  - "Get a hint" suggests the basic-strategy move; shortcuts: H hit, S stand, D double, P split, R surrender, Enter deal / next hand.
+  - Chips, stats and recent hands are saved on the device. A hand left unfinished by refreshing counts as lost.
+  - Logic lives in `src/blackjack/engine.js` (pure, unit-tested) and `src/blackjack/store.js`.
 
 ## Tech Stack
 
@@ -36,14 +50,19 @@ callbreak/
 ├── src/
 │   ├── components/
 │   │   ├── modals/
-│   │   │   ├── WinnerModal.jsx       # Game completion modal
+│   │   │   ├── WinnerModal.jsx       # Game completion modal (ties, export)
 │   │   │   ├── EditRoundModal.jsx    # Round editing modal
 │   │   │   └── ConfirmDialog.jsx     # Confirmation dialogs
 │   │   ├── Navbar.jsx                # Top navigation
 │   │   ├── PlayerSetup.jsx           # Initial setup screen
 │   │   ├── GameArea.jsx              # Main game container
 │   │   ├── RoundTracker.jsx          # Bid/trick input
-│   │   ├── BidCard.jsx               # Individual player card
+│   │   ├── BidCard.jsx               # Per-player bid/tricks card
+│   │   ├── NumberPicker.jsx          # Stepper + quick-pick chips
+│   │   ├── Modal.jsx                 # Accessible dialog/drawer shell
+│   │   ├── InsightsPanel.jsx         # Score chart + stats
+│   │   ├── HistoryPanel.jsx          # Past games
+│   │   ├── ExportButtons.jsx         # CSV / share image
 │   │   ├── ScoreBoard.jsx            # Ranking display
 │   │   ├── ScoreHistory.jsx          # Score table
 │   │   ├── RulesPanel.jsx            # Rules sidebar
@@ -51,14 +70,17 @@ callbreak/
 │   ├── hooks/
 │   │   └── useToast.js               # Toast notification system
 │   ├── utils/
-│   │   └── helpers.js                # Utility functions
+│   │   ├── helpers.js                # Pure game logic (scoring, ranking, validation)
+│   │   ├── storage.js                # Validated persistence + migration
+│   │   └── export.js                 # CSV and image export
 │   ├── store.js                      # Zustand state store
 │   ├── App.jsx                       # Root component
 │   ├── main.jsx                      # React entry point
 │   └── index.css                     # Global styles
 ├── index.html                        # HTML entry
 ├── package.json                      # Dependencies
-├── vite.config.js                    # Vite configuration
+├── vite.config.js                    # Vite + Vitest configuration
+├── public/                           # PWA manifest, icon, service worker
 ├── tailwind.config.js                # Tailwind configuration
 ├── postcss.config.js                 # PostCSS configuration
 ├── .gitignore                        # Git ignore rules
@@ -96,7 +118,12 @@ callbreak/
    ```
    Output in `dist/` folder
 
-5. **Preview production build**
+5. **Run the tests**
+   ```bash
+   npm test
+   ```
+
+6. **Preview production build**
    ```bash
    npm run preview
    ```
@@ -180,10 +207,12 @@ netlify deploy --prod --dir=dist
 Players bid the number of tricks they expect to win each round and earn/lose points based on accuracy.
 
 ### Setup
-- **2 Players**: 26 cards each (1-13 bid range)
-- **3 Players**: 17 cards each (1-8 bid range)
-- **4 Players**: 13 cards each (1-13 bid range) - Standard
-- **5 Players**: 10 cards each (1-6 bid range)
+- **2 Players**: 26 cards each (bids 1-13)
+- **3 Players**: 17 cards each (bids 1-13)
+- **4 Players**: 13 cards each (bids 1-13) - Standard
+- **5 Players**: 10 cards each (bids 1-10)
+
+Bids are capped at 13. Tricks won in a round must total the cards dealt. Traditional Call Break is 5 rounds.
 
 ### Scoring
 - **Meet/Exceed Bid**: 1 point per trick bid + 0.1 per overtrick
@@ -202,10 +231,9 @@ Highest total score after all rounds wins!
 
 ## Keyboard Shortcuts
 
-- `Tab` - Navigate between inputs
-- `Enter` - Submit round (when in last input)
-- `Esc` - Close modals
-- `?` - Toggle help panel (coming soon)
+- `?` - Open the rules guide
+- `Esc` - Close dialogs
+- `Tab` - Navigate between fields
 
 ## State Management
 
@@ -215,7 +243,7 @@ All game state persists via localStorage:
 - All round history
 - Theme preference
 
-Game automatically restores on page refresh.
+Bids and tricks for the round in progress are saved too. Finished games are archived to a history list. Corrupt or outdated saves are validated and ignored/migrated instead of crashing the app.
 
 ## Customization
 
@@ -245,17 +273,16 @@ Adjust Framer Motion transitions in component files or configure in `index.css`.
 
 ## Performance
 
-- Optimized bundle (~120KB gzipped)
-- Lazy component loading
-- Efficient re-renders with Zustand
-- Smooth 60fps animations
+- Small bundle (~100KB gzipped JS)
+- Selector-based Zustand subscriptions
+- Works offline after the first load (service worker, production builds)
 
 ## Accessibility
 
-- ARIA labels on interactive elements
-- Keyboard navigation support
-- High contrast dark/light modes
-- Screen reader friendly
+- Labelled controls, live-region toasts, focus-trapped dialogs
+- Full keyboard navigation, visible focus rings
+- Respects prefers-reduced-motion
+- Score chart has a text alternative and a stats table
 
 ## Development Tips
 
@@ -299,15 +326,13 @@ Issues or questions? Please open a GitHub issue with:
 
 ## Roadmap
 
-- [ ] Offline PWA support
-- [ ] Undo/redo for all actions
+- [x] Offline PWA support
+- [x] Export game history to CSV
+- [x] Game statistics dashboard
 - [ ] Multiplayer over network
 - [ ] Tournament bracket mode
-- [ ] Export game history to CSV
-- [ ] Game statistics dashboard
 - [ ] Custom player avatars
 - [ ] Sound effects and haptics
-- [ ] Keyboard shortcuts guide
 
 ## Credits
 

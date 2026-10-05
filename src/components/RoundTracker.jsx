@@ -1,98 +1,86 @@
 import { useState } from 'react'
 import { useGameStore } from '../store'
 import { useToastStore } from '../hooks/useToast'
-import { motion, AnimatePresence } from 'framer-motion'
-import { FiCheck, FiRotateCcw, FiFlag } from 'react-icons/fi'
+import { FiArrowLeft, FiArrowRight, FiCheck, FiFlag, FiRotateCcw } from 'react-icons/fi'
+import { FaCrown } from 'react-icons/fa'
 import BidCard from './BidCard'
 import ConfirmDialog from './ConfirmDialog'
-import { getCardsPerPlayer } from '../utils/helpers'
+import {
+  getBidOrder,
+  getCardsPerPlayer,
+  getDealerIndex,
+  getMaxBid,
+  isGameComplete,
+  sumTricks,
+} from '../utils/helpers'
+
+const STEPS = [
+  { id: 'bidding', label: 'Bids' },
+  { id: 'tricks', label: 'Tricks' },
+]
 
 export default function RoundTracker() {
-  const { players, playerCount, currentRound, totalRounds, submitRound, undoRound, endGameEarly, rounds } =
-    useGameStore()
+  const players = useGameStore((s) => s.players)
+  const playerCount = useGameStore((s) => s.playerCount)
+  const currentRound = useGameStore((s) => s.currentRound)
+  const totalRounds = useGameStore((s) => s.totalRounds)
+  const roundsPlayed = useGameStore((s) => s.rounds.length)
+  const dealerStart = useGameStore((s) => s.dealerStart)
+  const phase = useGameStore((s) => s.phase)
+  const draftBids = useGameStore((s) => s.draftBids)
+  const draftTricks = useGameStore((s) => s.draftTricks)
+  const { setBid, setTricks, lockBids, unlockBids, submitRound, undoRound, endGameEarly } = useGameStore.getState()
+  const setView = useGameStore((s) => s.setView)
   const { error, success } = useToastStore()
-  const [bids, setBids] = useState(Array(playerCount).fill(''))
-  const [tricks, setTricks] = useState(Array(playerCount).fill(''))
   const [confirmAction, setConfirmAction] = useState(null)
 
-  const cardsPerPlayer = getCardsPerPlayer(playerCount)
-  const isGameComplete = currentRound > totalRounds
+  const cards = getCardsPerPlayer(playerCount)
+  const maxBid = getMaxBid(playerCount)
+  const complete = isGameComplete(currentRound, totalRounds)
+  const dealer = getDealerIndex(dealerStart, currentRound, playerCount)
+  const order = getBidOrder(dealer, playerCount) // seating starting left of the dealer
 
-  const handleBidChange = (index, value) => {
-    const newBids = [...bids]
-    newBids[index] = value
-    setBids(newBids)
+  const totalBid = draftBids.reduce((sum, b) => sum + (b ?? 0), 0)
+  const bidsOver = totalBid > cards
+  const bidsComplete = draftBids.every((b) => b !== null) && !bidsOver
+  const assigned = sumTricks(draftTricks)
+  const tricksComplete = draftTricks.every((t) => t !== null)
+  const tricksValid = tricksComplete && assigned === cards
+  const inTricksPhase = phase === 'tricks'
+  const progress = Math.min(roundsPlayed / totalRounds, 1) * 100
+
+  const handleLock = () => {
+    const result = lockBids()
+    if (!result.ok) error(result.error)
   }
 
-  const handleTrickChange = (index, value) => {
-    const newTricks = [...tricks]
-    newTricks[index] = value
-    setTricks(newTricks)
-  }
-
-  const handleSubmitRound = () => {
-    const bidValues = []
-    const trickValues = []
-    let totalTricks = 0
-
-    // Validate and collect inputs
-    for (let i = 0; i < playerCount; i++) {
-      const bid = parseInt(bids[i])
-      const trick = parseInt(tricks[i])
-
-      if (isNaN(bid) || bid < 1 || bid > cardsPerPlayer) {
-        error(`Invalid bid for ${players[i]} (must be 1–${cardsPerPlayer})`)
-        return
-      }
-      if (isNaN(trick) || trick < 0 || trick > cardsPerPlayer) {
-        error(`Invalid tricks for ${players[i]} (must be 0–${cardsPerPlayer})`)
-        return
-      }
-
-      bidValues.push(bid)
-      trickValues.push(trick)
-      totalTricks += trick
-    }
-
-    // Validate total tricks
-    if (totalTricks !== cardsPerPlayer) {
-      error(`Total tricks must equal ${cardsPerPlayer}, you entered ${totalTricks}.`)
-      return
-    }
-
-    // Submit and reset
-    submitRound(bidValues, trickValues)
-    setBids(Array(playerCount).fill(''))
-    setTricks(Array(playerCount).fill(''))
-    success(`Round ${currentRound} recorded ✓`)
+  const handleSubmit = () => {
+    const round = currentRound
+    const result = submitRound()
+    if (!result.ok) return error(result.error)
+    success(`Round ${round} saved.`)
   }
 
   const handleUndo = () => {
-    if (rounds.length === 0) {
-      error('No rounds to undo.')
-      return
-    }
-
+    if (roundsPlayed === 0) return error('There is no round to undo yet.')
     setConfirmAction({
-      title: 'Undo Last Round?',
-      message: `Round ${rounds.length} entries will be removed.`,
+      title: 'Undo last round?',
+      message: `Round ${roundsPlayed} reopens with its bids and tricks so you can correct them.`,
+      confirmLabel: 'Undo round',
       onConfirm: () => {
         undoRound()
         setConfirmAction(null)
-        success('Last round undone.')
+        success('Round reopened.')
       },
     })
   }
 
   const handleEndGame = () => {
-    if (rounds.length === 0) {
-      error('Play at least one round before ending.')
-      return
-    }
-
+    if (roundsPlayed === 0) return error('Finish at least one round before ending the game.')
     setConfirmAction({
-      title: 'End Game Now?',
-      message: 'The current standings will become the final result.',
+      title: 'End the game now?',
+      message: 'The current standings become the final result.',
+      confirmLabel: 'End game',
       onConfirm: () => {
         endGameEarly()
         setConfirmAction(null)
@@ -100,124 +88,163 @@ export default function RoundTracker() {
     })
   }
 
-  const containerVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { staggerChildren: 0.05 },
-    },
-  }
-
   return (
     <>
-      <motion.div
-        initial="hidden"
-        animate="visible"
-        variants={containerVariants}
-        className="panel"
-      >
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <section className="panel" aria-labelledby="round-heading">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-              🎲 Round Manager
+            <h2 id="round-heading" className="mb-1 text-2xl text-ink">
+              Round {Math.min(currentRound, totalRounds)} <span className="text-mute">of {totalRounds}</span>
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Enter bids before the round, then tricks after.
+            <p className="text-mute">
+              {complete
+                ? 'All rounds are done.'
+                : inTricksPhase
+                  ? 'Enter the tricks each player won.'
+                  : 'Enter every player’s bid before play starts.'}
             </p>
           </div>
-          <motion.div
-            initial={{ scale: 0.8 }}
-            animate={{ scale: 1 }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-accent-50 dark:bg-accent-900/30 text-accent-900 dark:text-accent-100 rounded-full font-semibold text-sm border border-accent-200 dark:border-accent-800"
-          >
-            Round {currentRound} / {totalRounds}
-          </motion.div>
+          {!complete && (
+            <ol className="flex items-center gap-2 text-sm font-bold" aria-label="Round steps">
+              {STEPS.map((step, i) => {
+                const active = step.id === phase
+                return (
+                  <li key={step.id} className="flex items-center gap-2" aria-current={active ? 'step' : undefined}>
+                    <span
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs ${
+                        active ? 'bg-accent text-accent-ink' : 'bg-raised text-mute'
+                      }`}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className={active ? 'text-ink' : 'text-mute'}>{step.label}</span>
+                    {i < STEPS.length - 1 && <span className="mx-1 h-px w-6 bg-line" aria-hidden="true" />}
+                  </li>
+                )
+              })}
+            </ol>
+          )}
         </div>
 
-        {isGameComplete ? (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="py-12 text-center"
-          >
-            <div className="text-4xl mb-3">🏁</div>
-            <p className="text-gray-600 dark:text-gray-400">
-              All rounds completed. View the final ranking above.
-            </p>
-          </motion.div>
+        <div
+          role="progressbar"
+          aria-label="Game progress"
+          aria-valuemin={0}
+          aria-valuemax={totalRounds}
+          aria-valuenow={roundsPlayed}
+          className="mb-6 h-2 overflow-hidden rounded-full bg-raised"
+        >
+          <div className="h-full rounded-full bg-accent transition-all duration-500" style={{ width: `${progress}%` }} />
+        </div>
+
+        {complete ? (
+          <div className="py-8 text-center">
+            <FiFlag className="mx-auto mb-3 h-10 w-10 text-accent" aria-hidden="true" />
+            <p className="mb-5 text-mute">Check the final standings, or undo the last round to fix a mistake.</p>
+            <div className="flex flex-col justify-center gap-3 sm:flex-row">
+              <button type="button" onClick={() => setView('leaderboard')} className="btn btn-primary">
+                See leaderboard
+              </button>
+              <button type="button" onClick={handleUndo} className="btn btn-secondary">
+                <FiRotateCcw className="h-4 w-4" aria-hidden="true" />
+                Undo last round
+              </button>
+            </div>
+          </div>
         ) : (
           <>
-            {/* Bid Input Cards */}
-            <div className="mb-8">
-              <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-4 uppercase tracking-wider">
-                📣 Step 1: Enter Bids & Tricks Won
-              </h3>
-              <motion.div
-                variants={containerVariants}
-                className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-              >
-                <AnimatePresence>
-                  {players.map((name, idx) => (
-                    <motion.div key={idx} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <BidCard
-                        playerName={name}
-                        playerIndex={idx}
-                        bid={bids[idx]}
-                        tricks={tricks[idx]}
-                        cardsPerPlayer={cardsPerPlayer}
-                        onBidChange={(val) => handleBidChange(idx, val)}
-                        onTricksChange={(val) => handleTrickChange(idx, val)}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </motion.div>
+            <p className="mb-4 flex items-start gap-2.5 rounded-xl bg-raised/60 px-4 py-3 text-sm text-mute">
+              <FaCrown className="mt-0.5 h-4 w-4 flex-shrink-0 text-gold" aria-hidden="true" />
+              <span>
+                <strong className="text-ink">{players[dealer]}</strong> deals.{' '}
+                <strong className="text-ink">{players[order[0]]}</strong> bids first and leads the first trick.
+              </span>
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {order.map((idx, position) => (
+                <BidCard
+                  key={idx}
+                  playerName={players[idx]}
+                  seat={idx}
+                  mode={inTricksPhase ? 'tricks' : 'bid'}
+                  bid={draftBids[idx]}
+                  tricks={draftTricks[idx]}
+                  maxBid={maxBid}
+                  maxTricks={cards}
+                  isDealer={idx === dealer}
+                  bidOrder={position + 1}
+                  onBidChange={(v) => setBid(idx, v)}
+                  onTricksChange={(v) => setTricks(idx, v)}
+                />
+              ))}
             </div>
 
-            {/* Action Buttons */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-3"
-            >
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSubmitRound}
-                className="btn btn-primary flex-1"
-              >
-                <FiCheck className="w-5 h-5" />
-                Submit Round
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleUndo}
-                className="btn btn-secondary flex-1"
-              >
-                <FiRotateCcw className="w-5 h-5" />
-                Undo Last
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleEndGame}
-                className="btn btn-ghost flex-1"
-              >
-                <FiFlag className="w-5 h-5" />
-                End Game
-              </motion.button>
-            </motion.div>
+            {/* Sticky action bar keeps the primary action in reach; sits above the phone tab bar. */}
+            <div className="sticky bottom-[4.25rem] z-20 -mx-5 -mb-5 mt-6 rounded-b-2xl border-t border-line bg-surface/95 px-5 py-4 backdrop-blur sm:-mx-7 sm:-mb-7 sm:bottom-0 sm:px-7">
+              <div className="mb-3 flex items-center justify-between text-sm" aria-live="polite">
+                {inTricksPhase ? (
+                  <>
+                    <span className="font-semibold text-mute">Tricks assigned</span>
+                    <span
+                      className={`font-extrabold tabular-nums ${
+                        tricksValid ? 'text-accent' : assigned > cards ? 'text-danger' : 'text-ink'
+                      }`}
+                    >
+                      {assigned} / {cards}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-mute">Total bid</span>
+                    <span className={`font-extrabold tabular-nums ${bidsOver ? 'text-danger' : 'text-ink'}`}>
+                      {totalBid}{' '}
+                      <span className="font-medium text-mute">
+                        (max {cards}
+                        {bidsOver ? ', too high' : ''})
+                      </span>
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row">
+                {inTricksPhase ? (
+                  <>
+                    <button type="button" onClick={handleSubmit} disabled={!tricksValid} className="btn btn-primary col-span-2 sm:flex-1">
+                      <FiCheck className="h-5 w-5" aria-hidden="true" />
+                      Save round
+                    </button>
+                    <button type="button" onClick={unlockBids} className="btn btn-secondary">
+                      <FiArrowLeft className="h-4 w-4" aria-hidden="true" />
+                      Edit bids
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={handleLock} disabled={!bidsComplete} className="btn btn-primary col-span-2 sm:flex-1">
+                    Lock bids and play
+                    <FiArrowRight className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                )}
+                <button type="button" onClick={handleUndo} disabled={roundsPlayed === 0} className="btn btn-secondary">
+                  <FiRotateCcw className="h-4 w-4" aria-hidden="true" />
+                  Undo last
+                </button>
+                <button type="button" onClick={handleEndGame} disabled={roundsPlayed === 0} className="btn btn-ghost">
+                  <FiFlag className="h-4 w-4" aria-hidden="true" />
+                  End game
+                </button>
+              </div>
+            </div>
           </>
         )}
-      </motion.div>
+      </section>
 
       {confirmAction && (
         <ConfirmDialog
           title={confirmAction.title}
           message={confirmAction.message}
+          confirmLabel={confirmAction.confirmLabel}
           onConfirm={confirmAction.onConfirm}
           onCancel={() => setConfirmAction(null)}
         />

@@ -2,60 +2,53 @@ import { useToastStore } from '../hooks/useToast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FiCheckCircle, FiAlertCircle, FiX } from 'react-icons/fi'
 
+const STYLES = {
+  error: 'border-danger/50 text-ink [&_svg:first-child]:text-danger',
+  warning: 'border-gold/50 text-ink [&_svg:first-child]:text-gold',
+  success: 'border-accent/50 text-ink [&_svg:first-child]:text-accent',
+}
+
 export default function ToastContainer() {
-  const { toasts, removeToast } = useToastStore()
-
-  const getIcon = (type) => {
-    switch (type) {
-      case 'error':
-        return <FiAlertCircle className="w-5 h-5" />
-      case 'warning':
-        return <FiAlertCircle className="w-5 h-5" />
-      default:
-        return <FiCheckCircle className="w-5 h-5" />
-    }
-  }
-
-  const getStyles = (type) => {
-    switch (type) {
-      case 'error':
-        return 'bg-red-50 border-red-200 text-red-900 dark:bg-red-950 dark:border-red-700 dark:text-red-100'
-      case 'warning':
-        return 'bg-amber-50 border-amber-200 text-amber-900 dark:bg-amber-950 dark:border-amber-700 dark:text-amber-100'
-      default:
-        return 'bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-100'
-    }
-  }
+  const toasts = useToastStore((s) => s.toasts)
+  const removeToast = useToastStore((s) => s.removeToast)
 
   return (
-    <motion.div className="fixed top-24 right-4 z-50 flex flex-col gap-3 pointer-events-none">
+    // Live region so screen readers announce validation errors and confirmations.
+    <div
+      role="status"
+      aria-live="polite"
+      className="pointer-events-none fixed inset-x-4 top-20 z-[70] flex flex-col items-end gap-3"
+    >
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => (
           <motion.div
             key={toast.id}
-            initial={{ opacity: 0, x: 100, y: -20 }}
-            animate={{ opacity: 1, x: 0, y: 0 }}
-            exit={{ opacity: 0, x: 100, y: -20 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-            className={`
-              flex items-center gap-3 px-4 py-3 rounded-lg border
-              shadow-lg pointer-events-auto max-w-sm
-              ${getStyles(toast.type)}
-            `}
+            layout
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 60 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 26 }}
+            className={`pointer-events-auto flex max-w-sm items-center gap-3 rounded-xl border bg-surface px-4 py-3 shadow-2xl ${
+              STYLES[toast.type] ?? STYLES.success
+            }`}
           >
-            {getIcon(toast.type)}
-            <span className="flex-1 font-medium text-sm">{toast.message}</span>
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
+            {toast.type === 'success' ? (
+              <FiCheckCircle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            ) : (
+              <FiAlertCircle className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            )}
+            <span className="flex-1 text-sm font-semibold">{toast.message}</span>
+            <button
+              type="button"
+              aria-label="Dismiss notification"
               onClick={() => removeToast(toast.id)}
-              className="ml-2 p-1 rounded hover:bg-black/5 dark:hover:bg-white/10"
+              className="ml-1 rounded p-1 text-mute hover:bg-raised hover:text-ink"
             >
-              <FiX className="w-4 h-4" />
-            </motion.button>
+              <FiX className="h-4 w-4" />
+            </button>
           </motion.div>
         ))}
       </AnimatePresence>
-    </motion.div>
+    </div>
   )
 }
