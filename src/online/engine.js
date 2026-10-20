@@ -133,14 +133,10 @@ export const joinRoom = (state, player) => {
     return next
   }
 
-  const byName = next.players.findIndex((p) => !p.bot && sameName(p.name, name))
+  // Seats belong to accounts: once the game is under way only the people already seated
+  // (signed in as themselves, on any device) can come back.
   if (next.status !== 'lobby') {
-    if (byName < 0) {
-      fail('This game has already started, so no one new can join. If you were playing, use the exact name you joined with to take your seat back.', 'started')
-    }
-    if (next.hostId === next.players[byName].id) next.hostId = player.id
-    next.players[byName].id = player.id
-    return next
+    fail('This game has already started, so no one new can join. If you were playing, sign in with the same account to get your seat back.', 'started')
   }
 
   if (next.players.some((p) => sameName(p.name, name))) fail(`Someone here is already called ${name}. Pick another name.`)
@@ -236,6 +232,8 @@ export const endGame = (state, playerId) => {
 
 /** Round 1 with a random dealer (mutates `next`, which is already a copy). */
 const begin = (next, randInt) => {
+  // A fresh id per game, so each finished game is saved to history exactly once.
+  next.gameId = Array.from({ length: 16 }, () => randInt(36).toString(36)).join('')
   next.round = 1
   next.rounds = []
   next.endedEarly = false

@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import * as api from './room'
-import { GameError, cleanName, joinRoom, leaveRoom } from './engine'
+import * as auth from './auth'
+import { GameError, joinRoom, leaveRoom } from './engine'
+import { supabase } from './supabase'
 
-const ID_KEY = 'callbreak-online-identity'
 const ROOM_KEY = 'callbreak-online-room'
 
 const read = (key) => {
@@ -19,17 +20,6 @@ const write = (key, value) => {
   } catch {
     /* storage unavailable (private mode): the session still works, it just isn't remembered */
   }
-}
-
-// crypto.randomUUID needs a secure context; this also works over plain http on a LAN.
-const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('')
-
-/** This device's player id and last-used name. The id is what keeps your seat across refreshes. */
-const loadIdentity = () => {
-  const saved = read(ID_KEY)
-  const me = saved && typeof saved.id === 'string' ? { id: saved.id, name: cleanName(saved.name) } : { id: randomId(), name: '' }
-  write(ID_KEY, me)
-  return me
 }
 
 const loadSavedCode = () => {
@@ -58,16 +48,18 @@ export const useOnlineStore = create((set, get) => {
     }
   }
 
-  const saveName = (name) => {
-    const me = { ...get().me, name: cleanName(name) }
-    if (!me.name) throw new GameError('Enter your name.')
-    set({ me })
-    write(ID_KEY, me)
+  const signedIn = () => {
+    const { me } = get()
+    if (!me.id) throw new GameError('Sign in to play online.')
     return me
   }
 
   return {
-    me: loadIdentity(),
+    // The signed-in account ({ id: auth user id, name: username }); id is null when signed out.
+    me: { id: null, name: '' },
+    authReady: false, // false until the saved session (if any) has been read
+    history: null, // finished games for this account, newest first (null = not loaded)
+    historyError: null,
     code: null,
     row: null, // { code, state, version }: the room as last seen
     online: [], // player ids with the room open right now
@@ -172,15 +164,74 @@ export const useOnlineStore = create((set, get) => {
 
     setChatOpen: (chatOpen) => set(chatOpen ? { chatOpen, unread: 0 } : { chatOpen }),
 
-    create: (name, totalRounds) =>
+    /* ----- Account ----- */
+
+    /** Reads the saved session and follows sign-ins and sign-outs from here on. */
+    initAuth: async () => {
+      if (!supabase) {
+        set({ authReady: true })
+        return
+      }
+      const apply = (session) => {
+        const player = auth.playerFrom(session)
+        const wasId = get().me.id
+        set({ me: player ?? { id: null, name: '' }, authReady: true })
+        if (player && player.id !== wasId) {
+          set({ history: null })
+          if (get().pendingResume) get().resume()
+        }
+        if (!player) set({ resuming: false }) // nothing to resume until they sign in
+        if (!player && wasId) get().leave()
+      }
+      const { data } = await supabase.auth.getSession()
+      apply(data.session)
+      supabase.auth.onAuthStateChange((_event, session) => apply(session))
+    },
+
+    signIn: (username, password) => request(() => auth.signIn(username, password)),
+    signUp: (username, password) => request(() => auth.signUp(username, password)),
+    signOut: async () => {
+      get().leave()
+      await auth.signOut()
+      set({ me: { id: null, name: '' }, history: null })
+    },
+
+    /* ----- History ----- */
+
+    loadHistory: async () => {
+      const { me } = get()
+      if (!me.id) return
+      set({ historyError: null })
+      try {
+        const games = await api.fetchHistory()
+        if (get().me.id === me.id) set({ history: games })
+      } catch (e) {
+        set({ historyError: message(e), history: get().history ?? [] })
+      }
+    },
+
+    /** Saves a finished game to every seated player's history (safe to call from each of their devices). */
+    recordGame: async (state) => {
+      if (!get().me.id || !state.gameId || state.status !== 'finished' || !state.rounds.length) return
+      try {
+        await api.saveGame(get().code, state)
+        set({ history: null }) // refetch next time the history is opened
+      } catch {
+        /* another player's device may already have saved it; history is best-effort */
+      }
+    },
+
+    /* ----- Rooms ----- */
+
+    create: (totalRounds) =>
       request(async () => {
-        const me = saveName(name)
+        const me = signedIn()
         get().enter(await api.createRoom(me, totalRounds))
       }),
 
-    join: (name, code) =>
+    join: (code) =>
       request(async () => {
-        const me = saveName(name)
+        const me = signedIn()
         const roomCode = api.normalizeCode(code)
         if (roomCode.length < 4) throw new GameError('Enter the room code.')
         get().enter(await api.updateRoom(roomCode, null, (s) => joinRoom(s, me)))
@@ -203,13 +254,18 @@ export const useOnlineStore = create((set, get) => {
 
     resuming: false, // rejoining the saved room after a page reload
     resumeError: null,
+    pendingResume: false, // a reload asked to resume before the session was read
 
     /** After a reload (or the phone closing the tab in the background), take your seat back. */
     resume: async () => {
-      const { savedCode, me, code } = get()
-      if (code || !savedCode || !me.name) return
-      set({ resuming: true, resumeError: null })
-      const result = await get().join(me.name, savedCode)
+      const { savedCode, me, code, authReady } = get()
+      if (code || !savedCode) return
+      if (!authReady || !me.id) {
+        set({ pendingResume: true, resuming: !authReady })
+        return
+      }
+      set({ resuming: true, resumeError: null, pendingResume: false })
+      const result = await get().join(savedCode)
       set({ resuming: false, resumeError: result.ok ? null : result.error })
     },
 

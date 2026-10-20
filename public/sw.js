@@ -1,5 +1,5 @@
 /* Offline support: app shell is cached on install; other same-origin assets and fonts are cached as they are used. */
-const CACHE = 'callbreak-v1'
+const CACHE = 'callbreak-v2'
 const scope = self.registration.scope
 const SHELL = ['', 'index.html', 'manifest.webmanifest', 'icon.svg'].map((p) => new URL(p, scope).href)
 
@@ -27,15 +27,21 @@ self.addEventListener('fetch', (event) => {
   if (!cacheable) return
 
   // Pages: network first so updates arrive, falling back to the cached shell offline.
+  // Every page is the same app (it reads the URL itself), so a deep link like
+  // /online/callbreak/ABCDE that the host answers with a 404 also gets the app shell.
   if (request.mode === 'navigate') {
+    const shell = new URL('index.html', scope).href
     event.respondWith(
       fetch(request)
         .then((res) => {
-          const copy = res.clone()
-          caches.open(CACHE).then((c) => c.put(new URL('index.html', scope).href, copy))
+          if (res.status === 404) return caches.match(shell).then((cached) => cached || res)
+          if (res.ok) {
+            const copy = res.clone()
+            caches.open(CACHE).then((c) => c.put(shell, copy))
+          }
           return res
         })
-        .catch(() => caches.match(new URL('index.html', scope).href))
+        .catch(() => caches.match(shell))
     )
     return
   }

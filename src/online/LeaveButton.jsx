@@ -17,7 +17,7 @@ export default function LeaveButton() {
 
   const message = inLobby
     ? `Your seat will be given up${isHost && others ? ' and another player becomes the host' : ''}. You can join again with code ${code} before the game starts.`
-    : `The game carries on without you, waiting at your turn. To get back in, join again with code ${code} and the name ${me.name}.`
+    : `The game carries on without you, waiting at your turn. To get back in, sign in as ${me.name} and join code ${code}.`
 
   return (
     <>

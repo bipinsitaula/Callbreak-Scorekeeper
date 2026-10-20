@@ -4,7 +4,7 @@ import Modal from '../components/Modal'
 const KIND = {
   locked: { icon: FiLock, title: 'This room is closed', hint: 'Ask the host to reopen it, or get a code for another table.' },
   full: { icon: FiUsers, title: 'This table is full', hint: 'Every seat is taken. Ask for a code to another table.' },
-  started: { icon: FiPlayCircle, title: 'Game already in progress', hint: 'You can join the next game at this table once the host opens a new room.' },
+  started: { icon: FiPlayCircle, title: 'Game already in progress', hint: 'Only the players already seated can come back. Ask the host to open a new room for the next game.' },
 }
 
 /** "No more entry" pop-up shown when a room turns a new player away. */

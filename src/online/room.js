@@ -63,6 +63,39 @@ export async function updateRoom(code, row, action) {
   throw new Error('The table is busy. Try again.')
 }
 
+/* ---------- History ---------- */
+
+const GAMES = 'callbreak_games'
+
+/** Finished games you played in, newest first (row-level security only returns your own). */
+export async function fetchHistory(limit = 50) {
+  const { data, error } = await supabase
+    .from(GAMES)
+    .select('id, room_code, finished_at, total_rounds, ended_early, players, rounds')
+    .order('finished_at', { ascending: false })
+    .limit(limit)
+  if (error) throw networkError(error)
+  return data
+}
+
+/** Stores a finished game. Every person at the table may call this; the first save wins. */
+export async function saveGame(code, state) {
+  const players = state.players.map(({ id, name, bot }) => ({ id, name, bot: Boolean(bot) }))
+  const { error } = await supabase.from(GAMES).upsert(
+    {
+      id: state.gameId,
+      room_code: code,
+      total_rounds: state.totalRounds,
+      ended_early: Boolean(state.endedEarly),
+      players,
+      rounds: state.rounds,
+      player_ids: players.filter((p) => !p.bot).map((p) => p.id),
+    },
+    { onConflict: 'id', ignoreDuplicates: true }
+  )
+  if (error) throw networkError(error)
+}
+
 /* ---------- Chat ---------- */
 
 const MESSAGES = 'callbreak_messages'

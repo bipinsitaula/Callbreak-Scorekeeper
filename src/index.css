@@ -66,15 +66,39 @@
     }
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
   }
 }
 
+/* ---------- Motion ---------- */
+
+/* Panels and banners rise in when a screen opens. `backwards` (not `both`) so nothing is left
+   holding a transform afterwards, which would stop hover effects and trap fixed pop-ups. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+  }
+}
+@keyframes shine {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(120%);
+  }
+}
+
 @layer components {
   .btn {
     @apply inline-flex min-h-[2.75rem] items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  /* Press-in on tap/click for every device. */
+  .btn:not(:disabled):active {
+    transform: translateY(0) scale(0.97);
   }
   .btn-primary {
     @apply bg-accent text-accent-ink shadow-glow;
@@ -94,7 +118,8 @@
 
   /* Hover effects only on devices that can hover, so touch screens don't get stuck states. */
   @media (hover: hover) {
-    .btn-primary:not(:disabled):hover { @apply brightness-110; }
+    .btn:not(:disabled):hover { transform: translateY(-1px); }
+    .btn-primary:not(:disabled):hover { @apply brightness-110; box-shadow: 0 14px 34px -10px rgb(var(--accent) / 0.65); }
     .btn-secondary:not(:disabled):hover { @apply border-accent/60; }
     .btn-danger:not(:disabled):hover { @apply brightness-110; }
     .btn-ghost:not(:disabled):hover { @apply bg-raised text-ink; }
@@ -102,6 +127,24 @@
 
   .panel {
     @apply rounded-2xl border border-line bg-surface/80 p-5 shadow-panel backdrop-blur sm:p-7;
+    animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+  }
+
+  /* Game tiles lift and their artwork zooms a touch on hover. */
+  .game-card {
+    @apply transition-[transform,box-shadow,border-color] duration-300;
+  }
+  .game-card .game-card-art > * {
+    @apply transition-transform duration-500;
+  }
+  @media (hover: hover) {
+    .game-card:hover {
+      @apply -translate-y-1 border-accent/40;
+      box-shadow: 0 24px 50px -24px rgb(var(--accent) / 0.45);
+    }
+    .game-card:hover .game-card-art > * {
+      transform: scale(1.05) rotate(-1deg);
+    }
   }
 
   .field {
@@ -125,7 +168,25 @@
 
   .hero {
     @apply relative overflow-hidden rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/20 via-accent/5 to-transparent p-6 sm:p-8;
+    animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
   }
+  /* A soft band of light sweeps across a banner once when it appears. */
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(110deg, transparent 30%, rgb(var(--accent) / 0.12) 48%, rgb(255 255 255 / 0.06) 52%, transparent 70%);
+    transform: translateX(-120%);
+    animation: shine 1.6s 0.35s ease-out both;
+  }
+
+  /* Banners and panels on a screen come in one after another. */
+  main :is(.hero, .panel):nth-child(2) { animation-delay: 60ms; }
+  main :is(.hero, .panel):nth-child(3) { animation-delay: 120ms; }
+  main :is(.hero, .panel):nth-child(4) { animation-delay: 180ms; }
+  main :is(.hero, .panel):nth-child(5) { animation-delay: 240ms; }
+  main :is(.hero, .panel):nth-child(n + 6) { animation-delay: 300ms; }
 
   .label {
     @apply flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-mute;

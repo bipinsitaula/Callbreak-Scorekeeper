@@ -7,9 +7,9 @@ import Avatar from '../components/Avatar'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToastStore } from '../hooks/useToast'
 import { getCardsPerPlayer } from '../utils/helpers'
+import { pathFor } from '../routes'
 import {
   DEFAULT_ROUNDS,
-  MAX_NAME,
   MAX_SEATS,
   MIN_SEATS,
   ROUND_OPTIONS,
@@ -25,6 +25,8 @@ import { isSupabaseConfigured } from './supabase'
 import ChatPanel, { ChatButton } from './ChatPanel'
 import ConnectionBadge from './ConnectionBadge'
 import LeaveButton from './LeaveButton'
+import GameTabs from './GameTabs'
+import { AccountBar } from './AccountGate'
 import NoEntryDialog from './NoEntryDialog'
 import SeatToggle from './SeatToggle'
 import OnlineTable from './OnlineTable'
@@ -63,7 +65,7 @@ export default function OnlineView() {
 function SetupNotice() {
   return (
     <div className="space-y-6">
-      <BackHome />
+      <BackHome to="onlineGames" label="Back to online games" />
       <section className="panel space-y-3">
         <h1 className="text-2xl text-ink">Online play needs a Supabase project</h1>
         <p className="text-mute">
@@ -87,7 +89,6 @@ function JoinScreen() {
   const resuming = useOnlineStore((s) => s.resuming)
   const resumeError = useOnlineStore((s) => s.resumeError)
 
-  const [name, setName] = useState(me.name)
   const [code, setCode] = useState(inviteCode ?? '')
   const [rounds, setRounds] = useState(DEFAULT_ROUNDS)
   const [error, setError] = useState(null)
@@ -109,7 +110,11 @@ function JoinScreen() {
 
   return (
     <div className="space-y-6">
-      <BackHome />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <BackHome to="onlineGames" label="Back to online games" />
+        <GameTabs />
+      </div>
+      <AccountBar />
 
       <section className="hero">
         <div className="relative max-w-xl">
@@ -144,7 +149,7 @@ function JoinScreen() {
             <button type="button" className="btn btn-ghost" onClick={forgetSavedRoom}>
               Forget
             </button>
-            <button type="button" className="btn btn-primary" disabled={busy || !name.trim()} onClick={() => submit(() => join(name, savedCode))}>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => submit(() => join(savedCode))}>
               Rejoin
             </button>
           </div>
@@ -152,27 +157,16 @@ function JoinScreen() {
       )}
 
       <section className="panel space-y-6">
-        <div>
-          <label htmlFor="online-name" className="label mb-2">
-            Your name
-          </label>
-          <input
-            id="online-name"
-            className="field w-full"
-            value={name}
-            maxLength={MAX_NAME}
-            autoComplete="nickname"
-            placeholder="How the table will see you"
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
+        <p className="text-sm text-mute">
+          You’ll play as <strong className="text-ink">{me.name}</strong>.
+        </p>
 
         <div className="grid gap-6 md:grid-cols-2">
           <form
             className="flex flex-col"
             onSubmit={(e) => {
               e.preventDefault()
-              submit(() => create(name, rounds))
+              submit(() => create(rounds))
             }}
           >
             <h2 className="text-lg text-ink">Start a new table</h2>
@@ -194,7 +188,7 @@ function JoinScreen() {
                 </button>
               ))}
             </div>
-            <button type="submit" className="btn btn-primary mt-auto" disabled={busy || !name.trim()}>
+            <button type="submit" className="btn btn-primary mt-auto" disabled={busy}>
               <FiUsers className="h-4 w-4" aria-hidden="true" /> Create room
             </button>
           </form>
@@ -203,7 +197,7 @@ function JoinScreen() {
             className="flex flex-col border-t border-line pt-6 md:border-l md:border-t-0 md:pl-6 md:pt-0"
             onSubmit={(e) => {
               e.preventDefault()
-              submit(() => join(name, code))
+              submit(() => join(code))
             }}
           >
             <h2 className="text-lg text-ink">Join a table</h2>
@@ -221,7 +215,7 @@ function JoinScreen() {
                 spellCheck={false}
                 onChange={(e) => setCode(normalizeCode(e.target.value))}
               />
-              <button type="submit" className="btn btn-secondary flex-shrink-0" disabled={busy || !name.trim() || code.length < 4}>
+              <button type="submit" className="btn btn-secondary flex-shrink-0" disabled={busy || code.length < 4}>
                 Join
               </button>
             </div>
@@ -236,7 +230,7 @@ function JoinScreen() {
       </section>
 
       <p className="px-1 text-center text-xs text-mute">
-        {MIN_SEATS} to {MAX_SEATS} players; 4 is the classic game. Spades are trump. Lost your connection? Join again with the same code and name to get your seat back.
+        {MIN_SEATS} to {MAX_SEATS} players; 4 is the classic game. Spades are trump. Lost your connection? Sign in with the same account and join the same code to get your seat back.
       </p>
 
       {turnedAway && (
@@ -259,7 +253,7 @@ function WaitingRoom() {
   const isHost = state.hostId === me.id
   const seated = seatOf(state, me.id) >= 0
   const host = state.players.find((p) => p.id === state.hostId)
-  const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${code}`
+  const inviteUrl = `${window.location.origin}${pathFor('online', code, import.meta.env.BASE_URL)}`
   const canStart = state.players.length >= MIN_SEATS
 
   const [seatBusy, setSeatBusy] = useState(false)
@@ -457,7 +451,7 @@ function WaitingRoom() {
           </div>
 
           {!seated ? (
-            <button type="button" className="btn btn-primary w-full" disabled={busy} onClick={() => join(me.name, code)}>
+            <button type="button" className="btn btn-primary w-full" disabled={busy} onClick={() => join(code)}>
               Take a seat
             </button>
           ) : isHost ? (

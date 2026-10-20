@@ -1,4 +1,3 @@
-import { FiArrowRight } from 'react-icons/fi'
 import { RiCoinsLine } from 'react-icons/ri'
 import { GiSpades } from 'react-icons/gi'
 import { useGameStore } from '../store'
@@ -6,6 +5,7 @@ import { useBlackjackStore } from '../blackjack/store'
 import { useOnlineStore } from '../online/store'
 import { isGameComplete } from '../utils/helpers'
 import CardArt from './CardArt'
+import GameCard from './GameCard'
 import PlayingCard from '../blackjack/PlayingCard'
 
 const ACE = { id: 'hub-a', rank: 'A', suit: 'spades' }
@@ -15,38 +15,6 @@ const ONLINE_HAND = [
   { id: 'hub-os-k', rank: 'K', suit: 'spades' },
   { id: 'hub-oh-q', rank: 'Q', suit: 'hearts' },
 ]
-
-function GameCard({ title, kind, description, points, action, onClick, art, status }) {
-  return (
-    <article className="panel group relative flex flex-col overflow-hidden !p-0">
-      <div className="relative flex h-44 items-center justify-center overflow-hidden border-b border-line bg-gradient-to-br from-accent/20 via-accent/5 to-transparent">
-        {art}
-        {status && (
-          <span className="absolute left-4 top-4 rounded-full bg-accent px-3 py-1 text-xs font-extrabold text-accent-ink">
-            {status}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col p-5 sm:p-6">
-        <p className="mb-1 text-xs font-bold text-accent">{kind}</p>
-        <h2 className="mb-2 text-2xl text-ink">{title}</h2>
-        <p className="mb-4 text-mute">{description}</p>
-        <ul className="mb-6 space-y-1.5 text-sm text-mute">
-          {points.map((p) => (
-            <li key={p} className="flex gap-2">
-              <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent" />
-              {p}
-            </li>
-          ))}
-        </ul>
-        <button type="button" onClick={onClick} className="btn btn-primary mt-auto w-full">
-          {action}
-          <FiArrowRight className="h-4 w-4" aria-hidden="true" />
-        </button>
-      </div>
-    </article>
-  )
-}
 
 /** Landing page: pick a game. */
 export default function HubView() {
@@ -67,7 +35,7 @@ export default function HubView() {
             </span>
           </h1>
           <p className="mt-3 text-base text-mute sm:text-lg">
-            Keep score for a real game of Call Break, play it online with friends, or play blackjack against the dealer.
+            Keep score for a real game of Call Break, play card games online with friends, or play blackjack against the dealer.
           </p>
         </div>
       </section>
@@ -85,12 +53,12 @@ export default function HubView() {
         />
         <GameCard
           kind="Play on screen with friends"
-          title="Call Break online"
-          description="Everyone plays on their own phone. Type your name and a room code to sit down; the app shuffles, deals, checks the rules and keeps score."
-          points={['Join with a name and a room code', 'Shuffled and dealt on screen', 'Bids, tricks and scores handled for you']}
-          action={onlineCode ? 'Back to the table' : 'Play online'}
+          title="Online games"
+          description="Everyone plays on their own phone. Pick a game, type your name and a room code to sit down; the app shuffles, deals, checks the rules and keeps score."
+          points={['Join with a name and a room code', 'Shuffled and dealt on screen', 'Call Break now, more games on the way']}
+          action={onlineCode ? 'Back to the table' : 'Browse online games'}
           status={onlineCode ? `At table ${onlineCode}` : undefined}
-          onClick={() => setView('online')}
+          onClick={() => setView(onlineCode ? 'online' : 'onlineGames')}
           art={
             <div className="flex">
               {ONLINE_HAND.map((card, i) => (

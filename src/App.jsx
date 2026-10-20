@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { MotionConfig } from 'framer-motion'
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
 import { useGameStore } from './store'
 import Navbar from './components/Navbar'
 import { BottomNav, Sidebar } from './components/Navigation'
@@ -8,6 +8,9 @@ import HubView from './components/HubView'
 import BlackjackTable from './blackjack/BlackjackTable'
 import BlackjackRecord from './blackjack/BlackjackRecord'
 import OnlineView from './online/OnlineView'
+import OnlineGamesView from './online/OnlineGamesView'
+import OnlineHistoryView from './online/OnlineHistoryView'
+import AccountGate from './online/AccountGate'
 import { GameOverModal } from './components/GameOver'
 import CardArt from './components/CardArt'
 import RulesPanel from './components/RulesPanel'
@@ -20,9 +23,14 @@ const VIEWS = {
   leaderboard: LeaderboardView,
   blackjack: BlackjackTable,
   record: BlackjackRecord,
+  onlineGames: OnlineGamesView,
   online: OnlineView,
+  onlineHistory: OnlineHistoryView,
   settings: SettingsView,
 }
+
+// Online screens need a signed-in account.
+const NEEDS_ACCOUNT = new Set(['onlineGames', 'online', 'onlineHistory'])
 
 const isTyping = (el) => el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 
@@ -71,7 +79,24 @@ export default function App() {
           <Sidebar />
           <main className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-6 md:px-8 md:pb-10">
             <div className="mx-auto max-w-4xl">
-              <View />
+              {/* Each screen fades and slides in; the old one fades out first. */}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={view}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22, ease: 'easeOut' }}
+                >
+                  {NEEDS_ACCOUNT.has(view) ? (
+                    <AccountGate>
+                      <View />
+                    </AccountGate>
+                  ) : (
+                    <View />
+                  )}
+                </motion.div>
+              </AnimatePresence>
               <p className="mt-10 text-center text-xs text-faint md:hidden">Made by Bipin Sitaula</p>
             </div>
           </main>

@@ -48,7 +48,9 @@ const VIEW_SECTION = {
   leaderboard: 'callbreak',
   blackjack: 'blackjack',
   record: 'blackjack',
+  onlineGames: 'online',
   online: 'online',
+  onlineHistory: 'online',
 }
 
 const ok = { ok: true, error: null }
@@ -63,7 +65,7 @@ export const useGameStore = create((set, get) => ({
   history: [],
   prefs: null,
   theme: 'dark',
-  // Screens (not persisted): 'hub' | 'setup' | 'play' | 'leaderboard' | 'blackjack' | 'record' | 'online' | 'settings'.
+  // Screens (not persisted): 'hub' | 'setup' | 'play' | 'leaderboard' | 'blackjack' | 'record' | 'onlineGames' | 'online' | 'onlineHistory' | 'settings'.
   // `section` is the game the sidebar shows; Settings keeps whichever section you came from.
   view: 'hub',
   section: 'hub',

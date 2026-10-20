@@ -105,6 +105,12 @@ export default function OnlineTable() {
   const playable = canPlay ? new Set(legalCards(hand, state.trick).map((c) => c.id)) : null
   const ledSuit = state.trick[0]?.card.suit
 
+  /* ----- History: a finished game is saved to every seated player's account ----- */
+  const recordGame = useOnlineStore((s) => s.recordGame)
+  useEffect(() => {
+    if (state.status === 'finished') recordGame(useOnlineStore.getState().row.state)
+  }, [state.status, state.gameId, recordGame])
+
   /* ----- Chat: a new message pops up as a speech bubble over its sender's seat ----- */
   const lastMessage = useOnlineStore((s) => s.messages[s.messages.length - 1])
   const [bubbles, setBubbles] = useState({}) // playerId -> message

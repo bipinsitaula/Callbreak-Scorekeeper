@@ -93,11 +93,17 @@ describe('room lifecycle', () => {
     expect(s.players[2].name).toBe('Chandra K')
   })
 
-  it('lets a player take their seat back by name after the start, but no newcomers', () => {
+  it('after the start, only seated accounts get back in; a matching name is not enough', () => {
     const s = startGame(room(), 'p0', zero)
-    const back = joinRoom(s, { id: 'new-device', name: 'bikash' })
-    expect(back.players[1].id).toBe('new-device')
+    expect(joinRoom(s, { id: 'p1', name: 'Bikash' }).players[1].id).toBe('p1')
+    expect(() => joinRoom(s, { id: 'impostor', name: 'Bikash' })).toThrow(/started/)
     expect(() => joinRoom(s, { id: 'q', name: 'Stranger' })).toThrow(/started/)
+  })
+
+  it('gives every new game its own id', () => {
+    const s = startGame(room(), 'p0')
+    expect(s.gameId).toMatch(/^[a-z0-9]{16}$/)
+    expect(startGame({ ...s, status: 'finished' }, 'p0').gameId).not.toBe(s.gameId)
   })
 
   it('hands the host role on when the host leaves the lobby', () => {

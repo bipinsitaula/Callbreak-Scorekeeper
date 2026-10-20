@@ -1,0 +1,3 @@
+# Netlify: the app handles its own URLs (/online/callbreak/ABCDE, /blackjack, ...),
+# so every path that isn't a real file serves index.html.
+/*    /index.html   200
