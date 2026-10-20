@@ -63,6 +63,57 @@ export async function updateRoom(code, row, action) {
   throw new Error('The table is busy. Try again.')
 }
 
+/* ---------- Chat ---------- */
+
+const MESSAGES = 'callbreak_messages'
+const MESSAGE_COLUMNS = 'id, player_id, name, body, created_at'
+export const MESSAGE_MAX = 200
+const HISTORY = 60
+
+/** The latest messages for a room, oldest first. */
+export async function fetchMessages(code) {
+  const { data, error } = await supabase
+    .from(MESSAGES)
+    .select(MESSAGE_COLUMNS)
+    .eq('room_code', code)
+    .order('id', { ascending: false })
+    .limit(HISTORY)
+  if (error) throw networkError(error)
+  return data.reverse()
+}
+
+export async function sendMessage(code, me, body) {
+  const text = String(body ?? '').replace(/\s+/g, ' ').trim().slice(0, MESSAGE_MAX)
+  if (!text) throw new GameError('Type a message first.')
+  const { data, error } = await supabase
+    .from(MESSAGES)
+    .insert({ room_code: code, player_id: me.id, name: me.name, body: text })
+    .select(MESSAGE_COLUMNS)
+    .single()
+  if (error) {
+    // 42501: row-level security said no, which here means you're not seated at this table.
+    if (error.code === '42501') throw new GameError('Only players at this table can chat.')
+    throw networkError(error)
+  }
+  return data
+}
+
+/**
+ * Live chat messages. A separate channel from the game, so a chat problem (say, the chat
+ * migration not run yet) can never stop game updates. Returns an unsubscribe function.
+ */
+export function subscribeChat(code, { onMessage, onStatus }) {
+  const channel = supabase.channel(`callbreak-chat:${code}`)
+  channel
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: MESSAGES, filter: `room_code=eq.${code}` }, (payload) =>
+      onMessage(payload.new)
+    )
+    .subscribe((status) => onStatus?.(status))
+  return () => {
+    supabase.removeChannel(channel)
+  }
+}
+
 /**
  * Live room updates plus presence (who has the room open right now).
  * Returns an unsubscribe function.

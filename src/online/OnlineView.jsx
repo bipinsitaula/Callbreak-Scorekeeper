@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FiCopy, FiLink, FiLock, FiPlay, FiShare2, FiUnlock, FiUsers } from 'react-icons/fi'
+import { FiCopy, FiLink, FiLoader, FiLock, FiPlay, FiShare2, FiUnlock, FiUsers } from 'react-icons/fi'
 import { FaRobot } from 'react-icons/fa'
 import { GiSpades } from 'react-icons/gi'
 import BackHome from '../components/BackHome'
@@ -22,6 +22,7 @@ import {
 } from './engine'
 import { CODE_LENGTH, normalizeCode } from './room'
 import { isSupabaseConfigured } from './supabase'
+import ChatPanel, { ChatButton } from './ChatPanel'
 import ConnectionBadge from './ConnectionBadge'
 import LeaveButton from './LeaveButton'
 import NoEntryDialog from './NoEntryDialog'
@@ -51,8 +52,12 @@ export default function OnlineView() {
 
   if (!isSupabaseConfigured) return <SetupNotice />
   if (!code || !status) return <JoinScreen />
-  if (status === 'lobby') return <WaitingRoom />
-  return <OnlineTable />
+  return (
+    <>
+      {status === 'lobby' ? <WaitingRoom /> : <OnlineTable />}
+      <ChatPanel />
+    </>
+  )
 }
 
 function SetupNotice() {
@@ -79,6 +84,8 @@ function JoinScreen() {
   const create = useOnlineStore((s) => s.create)
   const join = useOnlineStore((s) => s.join)
   const forgetSavedRoom = useOnlineStore((s) => s.forgetSavedRoom)
+  const resuming = useOnlineStore((s) => s.resuming)
+  const resumeError = useOnlineStore((s) => s.resumeError)
 
   const [name, setName] = useState(me.name)
   const [code, setCode] = useState(inviteCode ?? '')
@@ -116,11 +123,23 @@ function JoinScreen() {
         </div>
       </section>
 
-      {savedCode && !inviteCode && (
-        <div className="panel flex flex-col gap-3 !p-4 sm:flex-row sm:items-center sm:justify-between sm:!p-5">
+      {resuming && (
+        <div className="panel flex items-center gap-3 !p-4 sm:!p-5" role="status">
+          <FiLoader className="h-5 w-5 flex-shrink-0 animate-spin text-accent" aria-hidden="true" />
           <p className="text-ink">
-            You were at table <strong className="tracking-widest text-accent">{savedCode}</strong>.
+            Getting your seat back at table <strong className="tracking-widest text-accent">{savedCode}</strong>…
           </p>
+        </div>
+      )}
+
+      {savedCode && !inviteCode && !resuming && (
+        <div className="panel flex flex-col gap-3 !p-4 sm:flex-row sm:items-center sm:justify-between sm:!p-5">
+          <div>
+            <p className="text-ink">
+              You were at table <strong className="tracking-widest text-accent">{savedCode}</strong>.
+            </p>
+            {resumeError && <p className="mt-1 text-sm text-danger">{resumeError}</p>}
+          </div>
           <div className="flex gap-2">
             <button type="button" className="btn btn-ghost" onClick={forgetSavedRoom}>
               Forget
@@ -285,7 +304,10 @@ function WaitingRoom() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <LeaveButton />
-        <ConnectionBadge />
+        <div className="flex items-center gap-2">
+          <ChatButton />
+          <ConnectionBadge />
+        </div>
       </div>
 
       <section className="hero text-center">

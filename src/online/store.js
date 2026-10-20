@@ -75,6 +75,9 @@ export const useOnlineStore = create((set, get) => {
     busy: false,
     savedCode: loadSavedCode(), // room to offer rejoining after a refresh
     inviteCode: null, // from a ?room= invite link
+    messages: [], // chat, oldest first: { id, player_id, name, body, created_at }
+    chatOpen: false,
+    unread: 0,
 
     setInviteCode: (inviteCode) => set({ inviteCode: api.normalizeCode(inviteCode) || null }),
 
@@ -98,9 +101,19 @@ export const useOnlineStore = create((set, get) => {
     enter: (row) => {
       unsubscribe?.()
       const { me } = get()
-      set({ code: row.code, row, online: [], connection: 'connecting', savedCode: row.code, inviteCode: null })
+      set({
+        code: row.code,
+        row,
+        online: [],
+        connection: 'connecting',
+        savedCode: row.code,
+        inviteCode: null,
+        messages: [],
+        unread: 0,
+        chatOpen: false,
+      })
       write(ROOM_KEY, row.code)
-      unsubscribe = api.subscribeRoom(row.code, me, {
+      const stopRoom = api.subscribeRoom(row.code, me, {
         onRow: (next) => get().receive(next),
         onPresence: (online) => set({ online }),
         onStatus: (status) => {
@@ -110,7 +123,54 @@ export const useOnlineStore = create((set, get) => {
           if (status === 'SUBSCRIBED') get().refresh()
         },
       })
+      const stopChat = api.subscribeChat(row.code, {
+        onMessage: (msg) => get().addMessages([msg], true),
+        onStatus: (status) => {
+          if (status === 'SUBSCRIBED' && get().code === row.code) get().loadMessages()
+        },
+      })
+      unsubscribe = () => {
+        stopRoom()
+        stopChat()
+      }
     },
+
+    /* ----- Chat ----- */
+
+    /** Merges messages in by id (live updates and fetches can overlap). `live` counts unread ones. */
+    addMessages: (incoming, live = false) => {
+      const { messages, me, chatOpen } = get()
+      const known = new Set(messages.map((m) => m.id))
+      const fresh = incoming.filter((m) => m && !known.has(m.id))
+      if (!fresh.length) return
+      const merged = [...messages, ...fresh].sort((a, b) => a.id - b.id).slice(-100)
+      const unseen = live && !chatOpen ? fresh.filter((m) => m.player_id !== me.id).length : 0
+      set({ messages: merged, unread: get().unread + unseen })
+    },
+
+    loadMessages: async () => {
+      const { code } = get()
+      if (!code) return
+      try {
+        const history = await api.fetchMessages(code)
+        if (get().code === code) get().addMessages(history)
+      } catch {
+        /* chat history is a nice-to-have; live messages still arrive */
+      }
+    },
+
+    sendMessage: async (body) => {
+      const { code, me } = get()
+      if (!code) return fail('You are not at a table.')
+      try {
+        get().addMessages([await api.sendMessage(code, me, body)])
+        return ok
+      } catch (e) {
+        return fail(message(e))
+      }
+    },
+
+    setChatOpen: (chatOpen) => set(chatOpen ? { chatOpen, unread: 0 } : { chatOpen }),
 
     create: (name, totalRounds) =>
       request(async () => {
@@ -131,14 +191,26 @@ export const useOnlineStore = create((set, get) => {
       const { code, row, me } = get()
       unsubscribe?.()
       unsubscribe = null
-      set({ code: null, row: null, online: [], connection: 'idle', savedCode: null })
+      set({ code: null, row: null, online: [], connection: 'idle', savedCode: null, messages: [], unread: 0, chatOpen: false })
       write(ROOM_KEY, null)
       if (code && row?.state.status === 'lobby') api.updateRoom(code, row, (s) => leaveRoom(s, me.id)).catch(() => {})
     },
 
     forgetSavedRoom: () => {
-      set({ savedCode: null })
+      set({ savedCode: null, resumeError: null })
       write(ROOM_KEY, null)
+    },
+
+    resuming: false, // rejoining the saved room after a page reload
+    resumeError: null,
+
+    /** After a reload (or the phone closing the tab in the background), take your seat back. */
+    resume: async () => {
+      const { savedCode, me, code } = get()
+      if (code || !savedCode || !me.name) return
+      set({ resuming: true, resumeError: null })
+      const result = await get().join(me.name, savedCode)
+      set({ resuming: false, resumeError: result.ok ? null : result.error })
     },
 
     /**

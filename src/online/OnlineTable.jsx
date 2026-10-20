@@ -6,10 +6,13 @@ import { SUITS } from '../blackjack/engine'
 import { useToastStore } from '../hooks/useToast'
 import { getCardsPerPlayer, getMaxBid } from '../utils/helpers'
 import { FaRobot } from 'react-icons/fa'
+import { FiHome } from 'react-icons/fi'
+import { useGameStore } from '../store'
 import { botMove, isBotTurn, legalCards, nextRound, placeBid, playCard, seatOf, startGame, statusText } from './engine'
 import { TABLE_CARD, seatOffset, seatSpot, trickOffset } from './layout'
 import DealAnimation from './DealAnimation'
 import ConnectionBadge from './ConnectionBadge'
+import { ChatButton } from './ChatPanel'
 import LeaveButton from './LeaveButton'
 import BidDialog from './BidDialog'
 import Hand from './Hand'
@@ -56,6 +59,8 @@ export default function OnlineTable() {
   const me = useOnlineStore((s) => s.me)
   const online = useOnlineStore((s) => s.online)
   const act = useOnlineStore((s) => s.act)
+  const leave = useOnlineStore((s) => s.leave)
+  const setView = useGameStore((s) => s.setView)
   const toastError = useToastStore((s) => s.error)
 
   const n = state.players.length
@@ -100,7 +105,25 @@ export default function OnlineTable() {
   const playable = canPlay ? new Set(legalCards(hand, state.trick).map((c) => c.id)) : null
   const ledSuit = state.trick[0]?.card.suit
 
-  /* ----- Bots: one person's browser plays their moves (the host's, or the first person online) ----- */
+  /* ----- Chat: a new message pops up as a speech bubble over its sender's seat ----- */
+  const lastMessage = useOnlineStore((s) => s.messages[s.messages.length - 1])
+  const [bubbles, setBubbles] = useState({}) // playerId -> message
+  useEffect(() => {
+    // Only fresh messages; loading the chat history shouldn't pop up old ones.
+    if (!lastMessage || Date.now() - new Date(lastMessage.created_at).getTime() > 30000) return
+    const msg = lastMessage
+    setBubbles((b) => ({ ...b, [msg.player_id]: msg }))
+    setTimeout(() => {
+      setBubbles((b) => {
+        if (b[msg.player_id]?.id !== msg.id) return b
+        const next = { ...b }
+        delete next[msg.player_id]
+        return next
+      })
+    }, 4500)
+  }, [lastMessage])
+
+  /* ----- Bots:one person's browser plays their moves (the host's, or the first person online) ----- */
   const humans = state.players.filter((p) => !p.bot)
   const driverId = (
     humans.find((p) => p.id === state.hostId && online.includes(p.id)) ??
@@ -137,6 +160,11 @@ export default function OnlineTable() {
   const isHost = state.hostId === me.id
   const dealNext = () => run((s, id) => nextRound(s, id))
   const playAgain = () => run((s, id) => startGame(s, id))
+  // The game is over, so leave the table and go back to the Home hub.
+  const goHome = () => {
+    leave()
+    setView('hub')
+  }
   const myBid = mySeat >= 0 ? state.bids[mySeat] : null
 
   return (
@@ -145,6 +173,7 @@ export default function OnlineTable() {
         <LeaveButton />
         <div className="flex flex-wrap items-center gap-2">
           <HostMenu />
+          <ChatButton />
           <ConnectionBadge />
         </div>
       </div>
@@ -163,7 +192,7 @@ export default function OnlineTable() {
         {/* Felt */}
         <div
           ref={felt}
-          className="relative mt-4 h-[23rem] overflow-hidden rounded-[2rem] border border-accent/25 sm:h-[27rem]"
+          className="relative isolate mt-4 h-[23rem] overflow-hidden rounded-[2rem] border border-accent/25 sm:h-[27rem]"
           style={{
             background:
               'radial-gradient(ellipse at center, rgb(var(--accent) / 0.16), rgb(var(--accent) / 0.04) 60%, transparent 75%), rgb(var(--raised) / 0.55)',
@@ -185,6 +214,7 @@ export default function OnlineTable() {
               won={state.won[seat]}
               cards={dealing ? 0 : (state.hands[seat]?.length ?? 0)}
               bidding={state.status === 'bidding'}
+              bubble={bubbles[player.id]}
             />
           ))}
 
@@ -259,6 +289,11 @@ export default function OnlineTable() {
                       Play again
                     </button>
                   )}
+                  {state.status === 'finished' && (
+                    <button type="button" className="btn btn-ghost" onClick={goHome}>
+                      <FiHome className="h-4 w-4" aria-hidden="true" /> Return home
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -269,7 +304,7 @@ export default function OnlineTable() {
           <RoundScoresDialog state={state} mySeat={mySeat} onClose={closeResults} onNext={dealNext} />
         )}
         {resultsOpen && state.status === 'finished' && (
-          <WinnerDialog state={state} mySeat={mySeat} isHost={isHost} onClose={closeResults} onPlayAgain={playAgain} />
+          <WinnerDialog state={state} mySeat={mySeat} isHost={isHost} onClose={closeResults} onPlayAgain={playAgain} onHome={goHome} />
         )}
 
         {/* Prompt */}
@@ -302,7 +337,7 @@ export default function OnlineTable() {
         {!dealing && mySeat >= 0 && (state.status === 'bidding' || state.status === 'playing') && <Hand cards={hand} playable={playable} onPlay={onPlay} dealId={state.dealId} ledSuit={ledSuit} />}
       </section>
 
-      {state.rounds.length > 0 && <ScoreSheet state={state} mySeat={mySeat} />}
+      <ScoreSheet state={state} mySeat={mySeat} />
     </div>
   )
 }
@@ -316,13 +351,30 @@ function Stat({ label, value, mono = false }) {
   )
 }
 
-function Seat({ player, seat, spot, isMe, isTurn, isDealer, online, bid, won, cards, bidding }) {
+function Seat({ player, seat, spot, isMe, isTurn, isDealer, online, bid, won, cards, bidding, bubble }) {
   const line = bid == null ? (bidding && isTurn ? 'Bidding…' : '') : bidding ? `Bid ${bid}` : `Won ${won} of ${bid}`
+  // Chat bubbles open towards the middle of the table so they stay on the felt.
+  const below = spot.y < 30
+  const side = spot.x < 30 ? 'left-0' : spot.x > 70 ? 'right-0' : 'left-1/2 -translate-x-1/2'
   return (
     <div
-      className="absolute flex w-[4.5rem] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 sm:w-28"
+      className="absolute z-10 flex w-[4.5rem] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 sm:w-28"
       style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
     >
+      <AnimatePresence>
+        {bubble && (
+          <motion.p
+            key={bubble.id}
+            initial={{ opacity: 0, scale: 0.6, y: below ? -6 : 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+            className={`pointer-events-none absolute ${below ? 'top-full mt-1' : 'bottom-full mb-1'} ${side} z-40 w-max max-w-[9rem] break-words rounded-2xl bg-white px-3 py-1.5 text-center text-xs font-semibold text-slate-900 shadow-xl sm:max-w-[12rem] sm:text-sm`}
+          >
+            {bubble.body}
+          </motion.p>
+        )}
+      </AnimatePresence>
       <div className="relative">
         {isTurn && <span aria-hidden="true" className="absolute -inset-1.5 animate-pulse rounded-full ring-2 ring-accent" />}
         <Avatar name={player.name} seat={seat} />

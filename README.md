@@ -126,7 +126,7 @@ callbreak/
    Output in `dist/` folder
 
 5. **Online play (Supabase)**
-   - Create a Supabase project and run `supabase/migrations/20261020000000_callbreak_rooms.sql` in its SQL editor (or `supabase db push` with the CLI). It creates the `callbreak_rooms` table, its row-level security policies, and adds it to realtime.
+   - Create a Supabase project and run the files in `supabase/migrations/` in order in its SQL editor (or `supabase db push` with the CLI). `20261020000000_callbreak_rooms.sql` creates the `callbreak_rooms` table; `20261021000000_callbreak_messages.sql` adds table chat (`callbreak_messages`, which only seated players can post to). Both set up row-level security and realtime.
    - Copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Project Settings > API), then restart `npm run dev`. Set the same two variables on your host (Vercel, Netlify…) for production builds.
    - Players join without signing in, so anyone who has a room's code can read that room's row, including the other hands. The app only ever shows you your own cards, which is fine for games among friends but is not cheat-proof.
 

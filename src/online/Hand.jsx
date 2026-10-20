@@ -161,7 +161,8 @@ export default function Hand({ cards, playable, onPlay, dealId, ledSuit }) {
 
       <div
         ref={ref}
-        className="relative select-none"
+        // `isolate` keeps the cards' z-index layering inside the hand, below pop-ups and the chat.
+        className="relative isolate select-none"
         style={{ height, touchAction: 'pan-y' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}

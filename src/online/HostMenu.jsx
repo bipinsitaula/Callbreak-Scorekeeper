@@ -64,9 +64,9 @@ export default function HostMenu() {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="btn btn-secondary !min-h-0 !px-3 !py-2">
+      <button type="button" onClick={() => setOpen(true)} title="Host controls" className="btn btn-secondary !min-h-0 !px-3 !py-2">
         <FiSliders className="h-4 w-4" aria-hidden="true" />
-        Host controls
+        <span className="sr-only sm:not-sr-only">Host controls</span>
       </button>
 
       {open && (

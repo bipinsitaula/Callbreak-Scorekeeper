@@ -321,13 +321,29 @@ export const playCard = (state, playerId, cardId) => {
   return next
 }
 
-/** Anyone at the table can deal the next round once the scores are in. */
+/**
+ * Seat with the best score in the last finished round. On a tie, whoever of them bid
+ * earliest that round (counting from the dealer's left) wins. Null before any round.
+ */
+export const roundWinner = (state) => {
+  const last = state.rounds[state.rounds.length - 1]
+  if (!last) return null
+  const n = state.players.length
+  const order = Array.from({ length: n }, (_, i) => (state.dealer + 1 + i) % n)
+  return order.reduce((best, seat) => (last.scores[seat] > last.scores[best] ? seat : best), order[0])
+}
+
+/**
+ * Anyone at the table can deal the next round once the scores are in. The last round's
+ * winner bids first (and leads the first trick), so the deal moves to the seat on their right.
+ */
 export const nextRound = (state, playerId, randInt = secureRandomInt) => {
   requireSeat(state, playerId)
   if (state.status !== 'roundEnd') fail('The round is not over yet.')
   const next = structuredClone(state)
+  const n = next.players.length
   next.round += 1
-  next.dealer = (next.dealer + 1) % next.players.length
+  next.dealer = (roundWinner(state) - 1 + n) % n
   return deal(next, randInt)
 }
 

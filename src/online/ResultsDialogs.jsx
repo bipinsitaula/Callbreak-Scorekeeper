@@ -1,9 +1,11 @@
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { FaTrophy } from 'react-icons/fa'
-import { FiX } from 'react-icons/fi'
+import { FiChevronDown, FiHome, FiRotateCcw, FiX } from 'react-icons/fi'
 import Avatar, { SEAT_COLORS } from '../components/Avatar'
 import Modal from '../components/Modal'
 import { formatScore, getLeaders, rankPlayers, sumScores } from '../utils/helpers'
+import { roundWinner } from './engine'
 
 const MEDAL = ['bg-gold text-slate-900', 'bg-slate-300 text-slate-900', 'bg-amber-700 text-white']
 
@@ -58,14 +60,59 @@ export function ScoreTable({ state, mySeat }) {
   )
 }
 
-/** The score sheet panel under the table. */
+/** The score sheet under the table: collapsed at first, opens like a drop-down. */
 export function ScoreSheet({ state, mySeat }) {
+  const [open, setOpen] = useState(false)
+  const played = state.rounds.length
+  const totals = sumScores(state.rounds, state.players.length)
+  const leaders = getLeaders(totals)
+
+  const summary = played
+    ? `${played} of ${state.totalRounds} round${state.totalRounds > 1 ? 's' : ''} played · ${
+        leaders.length > 1 ? 'Tied for the lead' : `${nameOf(state, leaders[0], mySeat)} ${leaders[0] === mySeat ? 'lead' : 'leads'} with ${formatScore(totals[leaders[0]])}`
+      }`
+    : 'Scores appear after the first round'
+
   return (
-    <section className="panel !p-4 sm:!p-6" aria-labelledby="score-sheet-title">
-      <h2 id="score-sheet-title" className="mb-3 text-lg text-ink">
-        Score sheet
+    <section className="panel !p-0" aria-labelledby="score-sheet-title">
+      <h2 id="score-sheet-title">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-controls="score-sheet-body"
+          className="flex w-full items-center gap-3 rounded-2xl px-4 py-4 text-left sm:px-6"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg text-ink">Score sheet</span>
+            <span className="block truncate text-sm font-semibold text-mute">{summary}</span>
+          </span>
+          <motion.span animate={{ rotate: open ? 180 : 0 }} className="flex-shrink-0 text-mute">
+            <FiChevronDown className="h-5 w-5" aria-hidden="true" />
+          </motion.span>
+        </button>
       </h2>
-      <ScoreTable state={state} mySeat={mySeat} />
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            id="score-sheet-body"
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-line px-4 pb-4 pt-3 sm:px-6 sm:pb-6">
+              {played ? (
+                <ScoreTable state={state} mySeat={mySeat} />
+              ) : (
+                <p className="py-2 text-sm text-mute">No rounds finished yet. Each round’s bids, tricks and points will be listed here.</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }
@@ -84,6 +131,7 @@ export function RoundScoresDialog({ state, mySeat, onClose, onNext }) {
   const totals = sumScores(state.rounds, state.players.length)
   const names = state.players.map((p) => p.name)
   const standings = rankPlayers(names, totals)
+  const winner = roundWinner(state)
 
   return (
     <Modal onClose={onClose} labelledBy="round-scores-title" className="w-full max-w-lg rounded-2xl border border-line bg-surface p-5 shadow-2xl sm:p-6">
@@ -98,6 +146,16 @@ export function RoundScoresDialog({ state, mySeat, onClose, onNext }) {
         </div>
         <CloseButton onClose={onClose} label="Close scores" />
       </div>
+
+      {winner !== null && (
+        <p className="mb-4 flex items-center gap-2.5 rounded-xl border border-gold/40 bg-gold/10 px-3 py-2.5 text-sm text-ink">
+          <FaTrophy className="h-4 w-4 flex-shrink-0 text-gold" aria-hidden="true" />
+          <span>
+            <strong>{winner === mySeat ? 'You' : names[winner]}</strong> won the round with {formatScore(last.scores[winner])}
+            {winner === mySeat ? ' and bid first next round.' : ' and bids first next round.'}
+          </span>
+        </p>
+      )}
 
       <ol className="space-y-2">
         {standings.map(({ index, rank }, i) => {
@@ -170,7 +228,7 @@ function Confetti() {
 }
 
 /** Game over: the winner, the final standings and the full score sheet. */
-export function WinnerDialog({ state, mySeat, isHost, onClose, onPlayAgain }) {
+export function WinnerDialog({ state, mySeat, isHost, onClose, onPlayAgain, onHome }) {
   const totals = sumScores(state.rounds, state.players.length)
   const names = state.players.map((p) => p.name)
   const standings = rankPlayers(names, totals)
@@ -268,17 +326,22 @@ export function WinnerDialog({ state, mySeat, isHost, onClose, onPlayAgain }) {
           </div>
         </details>
 
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <div className="mt-5 space-y-3">
           {isHost ? (
-            <button type="button" className="btn btn-primary flex-1" onClick={onPlayAgain}>
-              Play again
+            <button type="button" className="btn btn-primary w-full" onClick={onPlayAgain}>
+              <FiRotateCcw className="h-4 w-4" aria-hidden="true" /> Play again
             </button>
           ) : (
-            <p className="flex-1 self-center text-center text-sm text-mute">Waiting for the host to start a new game.</p>
+            <p className="text-center text-sm text-mute">Waiting for the host to start a new game.</p>
           )}
-          <button type="button" className="btn btn-secondary flex-1" onClick={onClose}>
-            Close
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button type="button" className="btn btn-secondary" onClick={onHome}>
+              <FiHome className="h-4 w-4" aria-hidden="true" /> Return home
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </Modal>

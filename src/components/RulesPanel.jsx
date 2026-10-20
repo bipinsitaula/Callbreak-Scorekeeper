@@ -89,7 +89,9 @@ export default function RulesPanel({ onClose }) {
     {
       title: 'Turn Order',
       content:
-        'Play proceeds clockwise. The player left of the dealer bids first and leads the first trick. The winner of each trick leads the next. After every round, the dealer rotates one seat clockwise.',
+        section === 'online'
+          ? 'Play proceeds clockwise. In round 1 the player left of the dealer bids first and leads the first trick. After that, whoever scored best in the last round bids first and leads (on a tie, the one who bid earliest), and the deal passes to the seat on their right. The winner of each trick leads the next.'
+          : 'Play proceeds clockwise. The player left of the dealer bids first and leads the first trick. The winner of each trick leads the next. After every round, the dealer rotates one seat clockwise.',
     },
     {
       title: 'Winning',

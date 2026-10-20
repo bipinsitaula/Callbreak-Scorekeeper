@@ -7,6 +7,7 @@ import {
   buildDeck,
   isBotTurn,
   removeBot,
+  roundWinner,
   setLocked,
   createRoomState,
   endGame,
@@ -264,11 +265,25 @@ describe('a full round', () => {
     expect(s.rounds).toHaveLength(1)
     expect(s.rounds[0].scores).toEqual(s.won.map((w) => (w >= 2 ? 20 + (w - 2) : -20)))
 
+    const winner = roundWinner(s)
+    const best = Math.max(...s.rounds[0].scores)
+    expect(s.rounds[0].scores[winner]).toBe(best)
     s = nextRound(s, 'p2', zero)
     expect(s.round).toBe(2)
-    expect(s.dealer).toBe(1)
-    expect(s.turn).toBe(2)
+    expect(s.turn).toBe(winner) // the round's winner bids first...
+    expect(s.dealer).toBe((winner + 3) % 4) // ...so the deal sits on their right
     expect(s.dealId).toBe(2)
+    s = placeBid(s, `p${winner}`, 1)
+    for (let i = 1; i < 4; i++) s = placeBid(s, `p${s.turn}`, 1)
+    expect(s.turn).toBe(winner) // and leads the first trick
+  })
+
+  it('round winner: best score, ties go to the earliest bidder', () => {
+    const base = { players: [{}, {}, {}, {}], dealer: 1 }
+    expect(roundWinner({ ...base, rounds: [] })).toBe(null)
+    expect(roundWinner({ ...base, rounds: [{ scores: [10, 31, 20, -30] }] })).toBe(1)
+    // Seats 0 and 3 tie; bidding went 2, 3, 0, 1, so seat 3 bid first.
+    expect(roundWinner({ ...base, rounds: [{ scores: [30, -20, 20, 30] }] })).toBe(3)
   })
 
   it('rejects an illegal card', () => {
