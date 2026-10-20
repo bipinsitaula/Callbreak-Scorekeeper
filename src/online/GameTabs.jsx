@@ -1,18 +1,19 @@
 import { FiClock, FiPlay } from 'react-icons/fi'
 import { useGameStore } from '../store'
-
-const TABS = [
-  { view: 'online', label: 'Play', icon: FiPlay },
-  { view: 'onlineHistory', label: 'History', icon: FiClock },
-]
+import { GAMES } from './games'
 
 /** Play / History tabs at the top of an online game's screens. */
-export default function GameTabs() {
+export default function GameTabs({ gameId = 'callbreak' }) {
+  const game = GAMES[gameId]
   const view = useGameStore((s) => s.view)
   const setView = useGameStore((s) => s.setView)
+  const tabs = [
+    { view: game.view, label: 'Play', icon: FiPlay },
+    { view: game.historyView, label: 'History', icon: FiClock },
+  ]
   return (
-    <nav aria-label="Call Break online" className="inline-grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface/80 p-1">
-      {TABS.map(({ view: v, label, icon: Icon }) => {
+    <nav aria-label={`${game.name} online`} className="inline-grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface/80 p-1">
+      {tabs.map(({ view: v, label, icon: Icon }) => {
         const active = view === v
         return (
           <button

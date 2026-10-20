@@ -1,25 +1,15 @@
 import { useEffect, useState } from 'react'
 import { FiCopy, FiLink, FiLoader, FiLock, FiPlay, FiShare2, FiUnlock, FiUsers } from 'react-icons/fi'
 import { FaRobot } from 'react-icons/fa'
-import { GiSpades } from 'react-icons/gi'
+import { GiCardKingHearts, GiSpades } from 'react-icons/gi'
 import BackHome from '../components/BackHome'
 import Avatar from '../components/Avatar'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useToastStore } from '../hooks/useToast'
-import { getCardsPerPlayer } from '../utils/helpers'
+import { useGameStore } from '../store'
 import { pathFor } from '../routes'
-import {
-  DEFAULT_ROUNDS,
-  MAX_SEATS,
-  MIN_SEATS,
-  ROUND_OPTIONS,
-  addBot,
-  removeBot,
-  seatOf,
-  setLocked,
-  setTotalRounds,
-  startGame,
-} from './engine'
+import { addBot, removeBot, seatOf, setLocked } from './engine'
+import { GAMES, gameOf } from './games'
 import { CODE_LENGTH, normalizeCode } from './room'
 import { isSupabaseConfigured } from './supabase'
 import ChatPanel, { ChatButton } from './ChatPanel'
@@ -30,13 +20,24 @@ import { AccountBar } from './AccountGate'
 import NoEntryDialog from './NoEntryDialog'
 import SeatToggle from './SeatToggle'
 import OnlineTable from './OnlineTable'
+import TeenPattiTable from './TeenPattiTable'
 import { useOnlineStore } from './store'
 
-/** Online Call Break: join screen, then the waiting room, then the table. */
-export default function OnlineView() {
+const ICONS = { callbreak: GiSpades, teenpatti: GiCardKingHearts }
+const TABLES = { callbreak: OnlineTable, teenpatti: TeenPattiTable }
+
+/** An online game: join screen, then the waiting room, then that game's table. */
+export default function OnlineView({ gameId = 'callbreak' }) {
   const code = useOnlineStore((s) => s.code)
   const status = useOnlineStore((s) => s.row?.state.status)
+  const roomGame = useOnlineStore((s) => (s.row ? gameOf(s.row.state).id : null))
   const refresh = useOnlineStore((s) => s.refresh)
+  const setView = useGameStore((s) => s.setView)
+
+  // At a table of another game (e.g. a Teen Patti code typed on the Call Break screen): go to it.
+  useEffect(() => {
+    if (roomGame && roomGame !== gameId) setView(GAMES[roomGame].view)
+  }, [roomGame, gameId, setView])
 
   // Catch up when the tab comes back, and poll while the live connection is down.
   useEffect(() => {
@@ -53,10 +54,12 @@ export default function OnlineView() {
   }, [code, refresh])
 
   if (!isSupabaseConfigured) return <SetupNotice />
-  if (!code || !status) return <JoinScreen />
+  if (!code || !status) return <JoinScreen gameId={gameId} />
+  if (roomGame !== gameId) return null // switching to the right game's screen
+  const Table = TABLES[gameId]
   return (
     <>
-      {status === 'lobby' ? <WaitingRoom /> : <OnlineTable />}
+      {status === 'lobby' ? <WaitingRoom /> : <Table />}
       <ChatPanel />
     </>
   )
@@ -78,7 +81,9 @@ function SetupNotice() {
   )
 }
 
-function JoinScreen() {
+function JoinScreen({ gameId }) {
+  const game = GAMES[gameId]
+  const Icon = ICONS[gameId]
   const me = useOnlineStore((s) => s.me)
   const busy = useOnlineStore((s) => s.busy)
   const savedCode = useOnlineStore((s) => s.savedCode)
@@ -90,7 +95,7 @@ function JoinScreen() {
   const resumeError = useOnlineStore((s) => s.resumeError)
 
   const [code, setCode] = useState(inviteCode ?? '')
-  const [rounds, setRounds] = useState(DEFAULT_ROUNDS)
+  const [rounds, setRounds] = useState(game.defaultOption)
   const [error, setError] = useState(null)
   const [turnedAway, setTurnedAway] = useState(null) // { code, message } when a room refuses entry
 
@@ -112,19 +117,17 @@ function JoinScreen() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackHome to="onlineGames" label="Back to online games" />
-        <GameTabs />
+        <GameTabs gameId={gameId} />
       </div>
       <AccountBar />
 
       <section className="hero">
         <div className="relative max-w-xl">
           <h1 className="flex items-center gap-3 text-3xl text-ink sm:text-4xl">
-            <GiSpades className="h-10 w-10 flex-shrink-0 text-accent" aria-hidden="true" />
-            Call Break online
+            <Icon className="h-10 w-10 flex-shrink-0 text-accent" aria-hidden="true" />
+            {game.name} online
           </h1>
-          <p className="mt-3 text-base text-mute sm:text-lg">
-            Play with friends, each on their own device. Make a table, share the room code, and the app shuffles, deals and keeps score.
-          </p>
+          <p className="mt-3 text-base text-mute sm:text-lg">{game.blurb}</p>
         </div>
       </section>
 
@@ -166,16 +169,16 @@ function JoinScreen() {
             className="flex flex-col"
             onSubmit={(e) => {
               e.preventDefault()
-              submit(() => create(rounds))
+              submit(() => create(rounds, gameId))
             }}
           >
             <h2 className="text-lg text-ink">Start a new table</h2>
             <p className="mb-4 mt-1 text-sm text-mute">You’ll get a room code to send to the other players.</p>
             <p className="label mb-2" id="create-rounds-label">
-              Rounds to play
+              {game.unit === 'hand' ? 'Hands' : 'Rounds'} to play
             </p>
-            <div role="radiogroup" aria-labelledby="create-rounds-label" className="mb-4 grid grid-cols-5 gap-1.5">
-              {ROUND_OPTIONS.map((r) => (
+            <div role="radiogroup" aria-labelledby="create-rounds-label" className="mb-4 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${game.options.length}, minmax(0, 1fr))` }}>
+              {game.options.map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -230,7 +233,7 @@ function JoinScreen() {
       </section>
 
       <p className="px-1 text-center text-xs text-mute">
-        {MIN_SEATS} to {MAX_SEATS} players; 4 is the classic game. Spades are trump. Lost your connection? Sign in with the same account and join the same code to get your seat back.
+        {game.minSeats} to {game.maxSeats} players. Lost your connection? Sign in with the same account and join the same code to get your seat back.
       </p>
 
       {turnedAway && (
@@ -249,12 +252,13 @@ function WaitingRoom() {
   const act = useOnlineStore((s) => s.act)
   const join = useOnlineStore((s) => s.join)
   const toast = useToastStore()
+  const game = gameOf(state)
 
   const isHost = state.hostId === me.id
   const seated = seatOf(state, me.id) >= 0
   const host = state.players.find((p) => p.id === state.hostId)
-  const inviteUrl = `${window.location.origin}${pathFor('online', code, import.meta.env.BASE_URL)}`
-  const canStart = state.players.length >= MIN_SEATS
+  const inviteUrl = `${window.location.origin}${pathFor(game.view, code, import.meta.env.BASE_URL)}`
+  const canStart = state.players.length >= game.minSeats
 
   const [seatBusy, setSeatBusy] = useState(false)
   const [confirmLock, setConfirmLock] = useState(false)
@@ -280,7 +284,7 @@ function WaitingRoom() {
     if (await run((s, id) => setLocked(s, id, false))) toast.success('Room open to new players')
   }
 
-  const empty = MAX_SEATS - state.players.length
+  const empty = game.maxSeats - state.players.length
 
   const copy = async (text, what) => {
     try {
@@ -292,7 +296,7 @@ function WaitingRoom() {
   }
 
   const share = () =>
-    navigator.share({ title: 'Call Break', text: `Join my Call Break table. Room code: ${code}`, url: inviteUrl }).catch(() => {})
+    navigator.share({ title: game.name, text: `Join my ${game.name} table. Room code: ${code}`, url: inviteUrl }).catch(() => {})
 
   return (
     <div className="space-y-6">
@@ -305,7 +309,7 @@ function WaitingRoom() {
       </div>
 
       <section className="hero text-center">
-        <p className="label justify-center">Room code</p>
+        <p className="label justify-center">{game.name} · Room code</p>
         <p className="mt-2 text-5xl font-extrabold tracking-[0.3em] text-accent sm:text-6xl" aria-label={`Room code ${code.split('').join(' ')}`}>
           {code}
         </p>
@@ -334,7 +338,7 @@ function WaitingRoom() {
       <div className="grid gap-6 md:grid-cols-[1fr_18rem]">
         <section className="panel" aria-labelledby="players-title">
           <h2 id="players-title" className="mb-4 text-lg text-ink">
-            Players ({state.players.length}/{MAX_SEATS})
+            Players ({state.players.length}/{game.maxSeats})
           </h2>
           <ul className="space-y-2">
             {state.players.map((p, seat) => (
@@ -372,7 +376,7 @@ function WaitingRoom() {
             ))}
             {Array.from({ length: empty }, (_, i) => {
               const seatNo = state.players.length + i + 1
-              const optional = seatNo > 4
+              const optional = seatNo > game.classicSeats
               return (
                 <li
                   key={`empty-${i}`}
@@ -383,7 +387,7 @@ function WaitingRoom() {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{state.locked ? 'Closed to new players' : 'Waiting for a player…'}</span>
-                    {optional && <span className="block text-xs text-faint">Optional 5th seat</span>}
+                    {optional && <span className="block text-xs text-faint">Optional seat</span>}
                   </span>
                   {isHost && <SeatToggle value="player" seatLabel={`Seat ${seatNo}`} disabled={seatBusy} onChange={() => setSeat('bot')} />}
                 </li>
@@ -398,17 +402,17 @@ function WaitingRoom() {
           </h2>
           <div>
             <p className="label mb-2" id="rounds-label">
-              Rounds
+              {game.unit === 'hand' ? 'Hands' : 'Rounds'}
             </p>
-            <div role="radiogroup" aria-labelledby="rounds-label" className="grid grid-cols-5 gap-1.5">
-              {ROUND_OPTIONS.map((r) => (
+            <div role="radiogroup" aria-labelledby="rounds-label" className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${game.options.length}, minmax(0, 1fr))` }}>
+              {game.options.map((r) => (
                 <button
                   key={r}
                   type="button"
                   role="radio"
-                  aria-checked={state.totalRounds === r}
+                  aria-checked={game.optionOf(state) === r}
                   disabled={!isHost}
-                  onClick={() => run((s, id) => setTotalRounds(s, id, r))}
+                  onClick={() => run((s, id) => game.setOption(s, id, r))}
                   className="seg !min-h-[2.75rem] !px-1 disabled:cursor-default"
                 >
                   {r}
@@ -456,13 +460,11 @@ function WaitingRoom() {
             </button>
           ) : isHost ? (
             <>
-              <button type="button" className="btn btn-primary w-full" disabled={!canStart} onClick={() => run((s, id) => startGame(s, id))}>
+              <button type="button" className="btn btn-primary w-full" disabled={!canStart} onClick={() => run((s, id) => game.start(s, id))}>
                 <FiPlay className="h-4 w-4" aria-hidden="true" /> Start game
               </button>
               <p className="text-xs text-mute">
-                {canStart
-                  ? `${state.players.length} players, ${getCardsPerPlayer(state.players.length)} cards each.`
-                  : `Waiting for at least ${MIN_SEATS} players.`}
+                {canStart ? game.describe(state.players.length) : `Waiting for at least ${game.minSeats} players.`}
               </p>
             </>
           ) : (

@@ -40,6 +40,12 @@ The app opens on a Home hub with three games.
   - Chips, stats and recent hands are saved on the device. A hand left unfinished by refreshing counts as lost.
   - Logic lives in `src/blackjack/engine.js` (pure, unit-tested) and `src/blackjack/store.js`.
 
+- **Teen Patti online** - 3-card betting game in the same online section (2 to 6 players, play chips).
+  - 1,000 chips each, boot 10. Bet blind (the stake) or seen (double); chaal, raise (doubles the stake, capped at 8 x boot), pack, show (two players left; the asker loses a tie) or all in when short (every hand left is shown).
+  - Rankings: trail, pure sequence, sequence, color, pair, high card; A-K-Q is the top sequence and A-2-3 second.
+  - The host picks 5, 10, 20 or 30 hands; most chips at the end wins. Rooms, chat, bots, accounts and history are shared with Call Break.
+  - Rules live in `src/online/teenpatti.js` (pure, unit-tested); per-game settings are in `src/online/games.js`. Run `supabase/migrations/20261023000000_teen_patti.sql` to store Teen Patti history.
+
 ## Tech Stack
 
 - **React 18** - UI framework

@@ -2,11 +2,13 @@ import { FiBookOpen, FiX } from 'react-icons/fi'
 import { useGameStore } from '../store'
 import { getCardsPerPlayer, getMaxBid, getRemainingCards, getVariantNotes } from '../utils/helpers'
 import Modal from './Modal'
+import { BOOT, MAX_STAKE, START_CHIPS } from '../online/teenpatti'
 
 /** Rules & guide, shown as a slide-in drawer from the navbar "?" button on every screen size. */
 export default function RulesPanel({ onClose }) {
   const playerCount = useGameStore((s) => s.playerCount)
   const section = useGameStore((s) => s.section)
+  const view = useGameStore((s) => s.view)
 
   const cardsPerPlayer = getCardsPerPlayer(playerCount)
   const remainingCards = getRemainingCards(playerCount)
@@ -189,7 +191,69 @@ export default function RulesPanel({ onClose }) {
     },
   ]
 
-  const sections = section === 'blackjack' ? blackjackSections : callBreakSections
+  const teenPattiSections = [
+    {
+      title: 'About Teen Patti',
+      content:
+        'Teen Patti ("three cards") is a betting game from South Asia, close to three-card poker. Each player gets three cards and bets chips on having the best hand, or on bluffing everyone else into packing.',
+    },
+    {
+      title: 'Each hand',
+      content: (
+        <ul className="ml-4 space-y-1">
+          <li>• 2 to 6 players; everyone starts the game with {START_CHIPS.toLocaleString()} play chips.</li>
+          <li>• Everyone puts in the boot ({BOOT}) to start the pot, then gets three cards face down.</li>
+          <li>• Betting goes round the table, starting left of the dealer.</li>
+        </ul>
+      ),
+    },
+    {
+      title: 'Blind or seen',
+      content: (
+        <ul className="ml-4 space-y-1">
+          <li>• <strong className="text-ink">Blind:</strong> you haven’t looked. You bet the stake.</li>
+          <li>• <strong className="text-ink">Seen:</strong> you’ve looked. You bet double the stake.</li>
+          <li>• You can look at your cards any time; it doesn’t use your turn.</li>
+        </ul>
+      ),
+    },
+    {
+      title: 'Your moves',
+      content: (
+        <ul className="ml-4 space-y-1">
+          <li>• <strong className="text-ink">Chaal:</strong> pay to stay in.</li>
+          <li>• <strong className="text-ink">Raise:</strong> double the stake for everyone after you (it stops doubling at {MAX_STAKE} blind).</li>
+          <li>• <strong className="text-ink">Pack:</strong> fold and give up the pot.</li>
+          <li>• <strong className="text-ink">Show:</strong> when only two players are left, pay and compare hands. If they tie, the player who asked loses.</li>
+          <li>• <strong className="text-ink">All in:</strong> if you can’t afford to stay in, put in everything; all hands left are shown and the best takes the pot.</li>
+        </ul>
+      ),
+    },
+    {
+      title: 'Hand rankings (best first)',
+      content: (
+        <ol className="ml-4 list-decimal space-y-1">
+          <li><strong className="text-ink">Trail:</strong> three of a kind (A-A-A is best).</li>
+          <li><strong className="text-ink">Pure sequence:</strong> three in a row of one suit.</li>
+          <li><strong className="text-ink">Sequence:</strong> three in a row, mixed suits.</li>
+          <li><strong className="text-ink">Color:</strong> three of one suit, not in a row.</li>
+          <li><strong className="text-ink">Pair:</strong> two of the same rank.</li>
+          <li><strong className="text-ink">High card:</strong> none of the above.</li>
+        </ol>
+      ),
+    },
+    {
+      title: 'Sequences',
+      content: 'A-K-Q is the highest sequence and A-2-3 the second highest, then K-Q-J and down to 4-3-2.',
+    },
+    {
+      title: 'Winning',
+      content: 'The game lasts the number of hands the host picked, or until one player has all the chips. Most chips wins. Chips are play money only.',
+    },
+  ]
+
+  const sections =
+    view === 'teenpatti' || view === 'teenpattiHistory' ? teenPattiSections : section === 'blackjack' ? blackjackSections : callBreakSections
 
   return (
     <Modal

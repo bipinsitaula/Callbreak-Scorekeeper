@@ -205,7 +205,7 @@ export function RoundScoresDialog({ state, mySeat, onClose, onNext }) {
 }
 
 /** Falling confetti in the seat colours. Positions are fixed per piece so it looks the same on every screen. */
-function Confetti() {
+export function Confetti() {
   const colors = [...SEAT_COLORS, '#facc15', '#2de2a6']
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">

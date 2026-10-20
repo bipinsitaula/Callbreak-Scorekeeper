@@ -14,17 +14,23 @@ const ROUTES = [
   ['onlineGames', 'online'],
   ['online', 'online/callbreak'],
   ['onlineHistory', 'online/callbreak/history'],
+  ['teenpatti', 'online/teenpatti'],
+  ['teenpattiHistory', 'online/teenpatti/history'],
   ['settings', 'settings'],
 ]
 
-const ROOM = /^online\/callbreak\/([a-z0-9]{4,8})$/i
+// A table: /online/<game>/<room code>. Each game's table screen is its own view.
+const ROOM = /^online\/(callbreak|teenpatti)\/([a-z0-9]{4,8})$/i
+const TABLE_VIEW = { callbreak: 'online', teenpatti: 'teenpatti' }
+/** Views that carry a room code in their URL. */
+export const ROOM_VIEWS = new Set(Object.values(TABLE_VIEW))
 
 const withSlash = (base) => (base.endsWith('/') ? base : `${base}/`)
 
-/** Path for a screen. The online table adds its room code: /online/callbreak/ABCDE. */
+/** Path for a screen. An online table adds its room code: /online/callbreak/ABCDE. */
 export const pathFor = (view, roomCode = null, base = '/') => {
   const path = ROUTES.find(([v]) => v === view)?.[1] ?? ''
-  return withSlash(base) + (view === 'online' && roomCode ? `${path}/${roomCode}` : path)
+  return withSlash(base) + (ROOM_VIEWS.has(view) && roomCode ? `${path}/${roomCode}` : path)
 }
 
 /**
@@ -44,6 +50,6 @@ export const parsePath = (pathname, search = '', base = '/') => {
   if (hit) return { view: hit[0], room: null }
 
   const room = rest.match(ROOM)
-  if (room) return { view: 'online', room: room[1].toUpperCase() }
+  if (room) return { view: TABLE_VIEW[room[1].toLowerCase()], room: room[2].toUpperCase() }
   return { view: 'hub', room: null }
 }

@@ -3,7 +3,7 @@
  * The table and its rules live in supabase/migrations.
  */
 import { secureRandomInt } from '../blackjack/engine'
-import { GameError, createRoomState } from './engine'
+import { GameError } from './engine'
 import { supabase } from './supabase'
 
 const TABLE = 'callbreak_rooms'
@@ -27,8 +27,8 @@ export async function fetchRoom(code) {
   return data
 }
 
-export async function createRoom(player, totalRounds) {
-  const state = createRoomState(player, totalRounds)
+/** Creates a room holding `state` (any game's starting state) under a fresh code. */
+export async function createRoom(state) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = makeRoomCode()
     const { data, error } = await supabase.from(TABLE).insert({ code, state, version: 0 }).select(COLUMNS).single()
@@ -67,11 +67,12 @@ export async function updateRoom(code, row, action) {
 
 const GAMES = 'callbreak_games'
 
-/** Finished games you played in, newest first (row-level security only returns your own). */
-export async function fetchHistory(limit = 50) {
+/** Finished games of one kind you played in, newest first (row-level security only returns your own). */
+export async function fetchHistory(game = 'callbreak', limit = 50) {
   const { data, error } = await supabase
     .from(GAMES)
-    .select('id, room_code, finished_at, total_rounds, ended_early, players, rounds')
+    .select('id, game, room_code, finished_at, total_rounds, ended_early, players, rounds')
+    .eq('game', game)
     .order('finished_at', { ascending: false })
     .limit(limit)
   if (error) throw networkError(error)
@@ -84,8 +85,9 @@ export async function saveGame(code, state) {
   const { error } = await supabase.from(GAMES).upsert(
     {
       id: state.gameId,
+      game: state.game ?? 'callbreak',
       room_code: code,
-      total_rounds: state.totalRounds,
+      total_rounds: state.totalRounds ?? state.totalHands,
       ended_early: Boolean(state.endedEarly),
       players,
       rounds: state.rounds,

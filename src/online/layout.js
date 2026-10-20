@@ -11,6 +11,10 @@ const SPOTS = {
   right: { x: 89, y: 48 },
   topLeft: { x: 27, y: 15 },
   topRight: { x: 73, y: 15 },
+  lowerLeft: { x: 11, y: 66 },
+  upperLeft: { x: 15, y: 27 },
+  upperRight: { x: 85, y: 27 },
+  lowerRight: { x: 89, y: 66 },
 }
 
 const LAYOUTS = {
@@ -18,6 +22,7 @@ const LAYOUTS = {
   3: ['bottom', 'left', 'right'],
   4: ['bottom', 'left', 'top', 'right'],
   5: ['bottom', 'left', 'topLeft', 'topRight', 'right'],
+  6: ['bottom', 'lowerLeft', 'upperLeft', 'top', 'upperRight', 'lowerRight'],
 }
 
 // Card on the felt (trick), centred on its anchor point with negative margins.

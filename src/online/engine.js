@@ -89,6 +89,9 @@ const requireHost = (state, playerId) => {
   if (state.hostId !== playerId) fail('Only the host can do that.')
 }
 
+// Each game sets its own table size (Teen Patti seats six); Call Break rooms use MAX_SEATS.
+const seatLimit = (state) => state.maxSeats ?? MAX_SEATS
+
 const sameName = (a, b) => a.toLowerCase() === b.toLowerCase()
 
 /* ---------- Room lifecycle ---------- */
@@ -141,7 +144,7 @@ export const joinRoom = (state, player) => {
 
   if (next.players.some((p) => sameName(p.name, name))) fail(`Someone here is already called ${name}. Pick another name.`)
   if (next.locked) fail('The host has closed this room to new players.', 'locked')
-  if (next.players.length >= MAX_SEATS) fail(`This table is full (${MAX_SEATS} players).`, 'full')
+  if (next.players.length >= seatLimit(next)) fail(`This table is full (${seatLimit(next)} players).`, 'full')
   next.players.push({ id: player.id, name })
   return next
 }
@@ -166,7 +169,7 @@ export const setLocked = (state, playerId, locked) => {
 export const addBot = (state, playerId, randInt = secureRandomInt) => {
   requireHost(state, playerId)
   if (state.status !== 'lobby') fail('The game has already started.')
-  if (state.players.length >= MAX_SEATS) fail(`This table is full (${MAX_SEATS} players).`)
+  if (state.players.length >= seatLimit(state)) fail(`This table is full (${seatLimit(state)} players).`)
   const free = BOT_NAMES.filter((b) => !state.players.some((p) => sameName(p.name, b)))
   const name = free.length ? free[randInt(free.length)] : `Robo ${state.players.length + 1}`
   const id = `bot-${Array.from({ length: 8 }, () => randInt(36).toString(36)).join('')}`

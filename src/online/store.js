@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import * as api from './room'
 import * as auth from './auth'
 import { GameError, joinRoom, leaveRoom } from './engine'
+import { GAMES } from './games'
 import { supabase } from './supabase'
 
 const ROOM_KEY = 'callbreak-online-room'
@@ -58,7 +59,7 @@ export const useOnlineStore = create((set, get) => {
     // The signed-in account ({ id: auth user id, name: username }); id is null when signed out.
     me: { id: null, name: '' },
     authReady: false, // false until the saved session (if any) has been read
-    history: null, // finished games for this account, newest first (null = not loaded)
+    history: {}, // finished games for this account by game id, newest first (missing = not loaded)
     historyError: null,
     code: null,
     row: null, // { code, state, version }: the room as last seen
@@ -177,7 +178,7 @@ export const useOnlineStore = create((set, get) => {
         const wasId = get().me.id
         set({ me: player ?? { id: null, name: '' }, authReady: true })
         if (player && player.id !== wasId) {
-          set({ history: null })
+          set({ history: {} })
           if (get().pendingResume) get().resume()
         }
         if (!player) set({ resuming: false }) // nothing to resume until they sign in
@@ -193,20 +194,20 @@ export const useOnlineStore = create((set, get) => {
     signOut: async () => {
       get().leave()
       await auth.signOut()
-      set({ me: { id: null, name: '' }, history: null })
+      set({ me: { id: null, name: '' }, history: {} })
     },
 
     /* ----- History ----- */
 
-    loadHistory: async () => {
+    loadHistory: async (game = 'callbreak') => {
       const { me } = get()
       if (!me.id) return
       set({ historyError: null })
       try {
-        const games = await api.fetchHistory()
-        if (get().me.id === me.id) set({ history: games })
+        const games = await api.fetchHistory(game)
+        if (get().me.id === me.id) set({ history: { ...get().history, [game]: games } })
       } catch (e) {
-        set({ historyError: message(e), history: get().history ?? [] })
+        set({ historyError: message(e), history: { ...get().history, [game]: get().history[game] ?? [] } })
       }
     },
 
@@ -215,7 +216,9 @@ export const useOnlineStore = create((set, get) => {
       if (!get().me.id || !state.gameId || state.status !== 'finished' || !state.rounds.length) return
       try {
         await api.saveGame(get().code, state)
-        set({ history: null }) // refetch next time the history is opened
+        const history = { ...get().history }
+        delete history[state.game ?? 'callbreak'] // refetch next time that game's history is opened
+        set({ history })
       } catch {
         /* another player's device may already have saved it; history is best-effort */
       }
@@ -223,10 +226,13 @@ export const useOnlineStore = create((set, get) => {
 
     /* ----- Rooms ----- */
 
-    create: (totalRounds) =>
+    /** Makes a new table for `gameId` ('callbreak' | 'teenpatti') with its length option. */
+    create: (option, gameId = 'callbreak') =>
       request(async () => {
         const me = signedIn()
-        get().enter(await api.createRoom(me, totalRounds))
+        const game = GAMES[gameId]
+        if (!game) throw new GameError('Unknown game.')
+        get().enter(await api.createRoom(game.createState(me, option)))
       }),
 
     join: (code) =>

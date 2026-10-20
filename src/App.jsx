@@ -24,13 +24,15 @@ const VIEWS = {
   blackjack: BlackjackTable,
   record: BlackjackRecord,
   onlineGames: OnlineGamesView,
-  online: OnlineView,
-  onlineHistory: OnlineHistoryView,
+  online: () => <OnlineView gameId="callbreak" />,
+  onlineHistory: () => <OnlineHistoryView gameId="callbreak" />,
+  teenpatti: () => <OnlineView gameId="teenpatti" />,
+  teenpattiHistory: () => <OnlineHistoryView gameId="teenpatti" />,
   settings: SettingsView,
 }
 
 // Online screens need a signed-in account.
-const NEEDS_ACCOUNT = new Set(['onlineGames', 'online', 'onlineHistory'])
+const NEEDS_ACCOUNT = new Set(['onlineGames', 'online', 'onlineHistory', 'teenpatti', 'teenpattiHistory'])
 
 const isTyping = (el) => el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 

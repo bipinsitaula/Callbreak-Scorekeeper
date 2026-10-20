@@ -11,6 +11,8 @@ describe('routes', () => {
     expect(pathFor('online', 'S7AHG')).toBe('/online/callbreak/S7AHG')
     expect(pathFor('settings')).toBe('/settings')
     expect(pathFor('onlineHistory')).toBe('/online/callbreak/history')
+    expect(pathFor('teenpatti', 'QCJ75')).toBe('/online/teenpatti/QCJ75')
+    expect(pathFor('teenpattiHistory')).toBe('/online/teenpatti/history')
   })
 
   it('only the online table carries a room code', () => {
@@ -25,6 +27,8 @@ describe('routes', () => {
     expect(parsePath('/online/callbreak')).toEqual({ view: 'online', room: null })
     expect(parsePath('/online/callbreak/s7ahg')).toEqual({ view: 'online', room: 'S7AHG' })
     expect(parsePath('/online/callbreak/history')).toEqual({ view: 'onlineHistory', room: null })
+    expect(parsePath('/online/teenpatti/qcj75')).toEqual({ view: 'teenpatti', room: 'QCJ75' })
+    expect(parsePath('/online/teenpatti/history')).toEqual({ view: 'teenpattiHistory', room: null })
   })
 
   it('falls back to home for unknown or malformed paths', () => {

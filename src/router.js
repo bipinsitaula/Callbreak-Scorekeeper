@@ -9,7 +9,7 @@
 import { useGameStore } from './store'
 import { useOnlineStore } from './online/store'
 import { isSupabaseConfigured } from './online/supabase'
-import { parsePath, pathFor } from './routes'
+import { ROOM_VIEWS, parsePath, pathFor } from './routes'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -18,13 +18,13 @@ const roomInView = (online) => online.code ?? (online.resuming ? online.savedCod
 
 const currentPath = () => {
   const { view } = useGameStore.getState()
-  return pathFor(view, view === 'online' ? roomInView(useOnlineStore.getState()) : null, BASE)
+  return pathFor(view, ROOM_VIEWS.has(view) ? roomInView(useOnlineStore.getState()) : null, BASE)
 }
 
 /** Shows the screen a URL points at. */
 const apply = ({ view, room }) => {
   useGameStore.getState().setView(view)
-  if (view !== 'online' || !room) return
+  if (!ROOM_VIEWS.has(view) || !room) return
   const online = useOnlineStore.getState()
   if (online.code) return // already at a table; the URL is corrected to it below
   // resume() waits for the saved sign-in to load, then takes your seat back.

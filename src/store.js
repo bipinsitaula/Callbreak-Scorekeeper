@@ -51,6 +51,8 @@ const VIEW_SECTION = {
   onlineGames: 'online',
   online: 'online',
   onlineHistory: 'online',
+  teenpatti: 'online',
+  teenpattiHistory: 'online',
 }
 
 const ok = { ok: true, error: null }
@@ -65,7 +67,7 @@ export const useGameStore = create((set, get) => ({
   history: [],
   prefs: null,
   theme: 'dark',
-  // Screens (not persisted): 'hub' | 'setup' | 'play' | 'leaderboard' | 'blackjack' | 'record' | 'onlineGames' | 'online' | 'onlineHistory' | 'settings'.
+  // Screens (not persisted): 'hub' | 'setup' | 'play' | 'leaderboard' | 'blackjack' | 'record' | 'onlineGames' | 'online' | 'onlineHistory' | 'teenpatti' | 'teenpattiHistory' | 'settings'.
   // `section` is the game the sidebar shows; Settings keeps whichever section you came from.
   view: 'hub',
   section: 'hub',

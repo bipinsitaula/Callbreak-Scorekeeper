@@ -3,7 +3,7 @@ import { FiFlag, FiRotateCcw, FiSliders, FiX } from 'react-icons/fi'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Modal from '../components/Modal'
 import { useToastStore } from '../hooks/useToast'
-import { endGame, restartGame } from './engine'
+import { gameOf, plural } from './games'
 import { useOnlineStore } from './store'
 
 /** Host-only pop-up with game controls. Each control asks for confirmation first. */
@@ -17,18 +17,22 @@ export default function HostMenu() {
 
   if (!state || state.hostId !== me.id || state.status === 'lobby') return null
 
+  const game = gameOf(state)
   const inGame = state.status !== 'finished'
-  const played = state.rounds.length
+  const played = game.played(state)
+  const total = game.optionOf(state)
+  const unit = game.unit
+  const what = game.id === 'teenpatti' ? 'chip counts' : 'scores'
 
   const ACTIONS = {
     redo: {
       icon: FiRotateCcw,
       label: 'Redo this game',
-      description: 'Shuffle a fresh deck and start again from round 1 with the same players. All scores are wiped.',
+      description: `Shuffle a fresh deck and start again from ${unit} 1 with the same players. All ${what} are reset.`,
       title: 'Redo this game?',
-      message: `Everyone's scores${played ? ` from ${played} round${played > 1 ? 's' : ''}` : ''} will be wiped and a new game of ${state.totalRounds} round${state.totalRounds > 1 ? 's' : ''} starts from round 1. This cannot be undone.`,
+      message: `Everyone's ${what}${played ? ` from ${plural(played, unit)}` : ''} will be reset and a new game of ${plural(total, unit)} starts from ${unit} 1. This cannot be undone.`,
       confirmLabel: 'Redo game',
-      run: (s, id) => restartGame(s, id),
+      run: (s, id) => game.restart(s, id),
       done: 'New game dealt',
       enabled: true,
     },
@@ -36,14 +40,14 @@ export default function HostMenu() {
       icon: FiFlag,
       label: 'End game',
       description: played
-        ? `Stop now and show the final standings after ${played} round${played > 1 ? 's' : ''}.`
-        : 'No round has finished yet, so everyone goes back to the waiting room.',
+        ? `Stop now and show the final standings after ${plural(played, unit)}.`
+        : `No ${unit} has finished yet, so everyone goes back to the waiting room.`,
       title: 'End the game now?',
       message: played
-        ? `The game ends for everyone and the final standings use the ${played} finished round${played > 1 ? 's' : ''}. The round being played now will not count.`
-        : 'No round has been scored yet, so the game is cancelled and everyone goes back to the waiting room.',
+        ? `The game ends for everyone and the final standings use the ${plural(played, `finished ${unit}`)}. The ${unit} being played now will not count${game.id === 'teenpatti' ? ', and chips bet in it go back' : ''}.`
+        : `No ${unit} has finished yet, so the game is cancelled and everyone goes back to the waiting room.`,
       confirmLabel: 'End game',
-      run: (s, id) => endGame(s, id),
+      run: (s, id) => game.end(s, id),
       done: 'Game ended',
       enabled: inGame,
     },

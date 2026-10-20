@@ -7,7 +7,9 @@ import BackHome from '../components/BackHome'
 import { formatScore, rankPlayers, sumScores } from '../utils/helpers'
 import { AccountBar } from './AccountGate'
 import GameTabs from './GameTabs'
+import { GAMES } from './games'
 import { ScoreTable } from './ResultsDialogs'
+import { START_CHIPS } from './teenpatti'
 import { useOnlineStore } from './store'
 
 const when = (iso) => {
@@ -17,11 +19,40 @@ const when = (iso) => {
     : d.toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+const REASON = { fold: 'everyone else packed', show: 'show', allin: 'all-in showdown' }
+
+/** Per-game scoring for the history list. */
+const SCORING = {
+  callbreak: {
+    totals: (g) => sumScores(g.rounds, g.players.length),
+    format: formatScore,
+    best: 'Best score',
+    Detail: ({ game, mySeat }) => <ScoreTable state={{ players: game.players, rounds: game.rounds, totalRounds: game.total_rounds }} mySeat={mySeat} />,
+  },
+  teenpatti: {
+    totals: (g) => g.rounds[g.rounds.length - 1]?.chips ?? g.players.map(() => START_CHIPS),
+    format: (n) => `${n.toLocaleString()} chips`,
+    best: 'Most chips',
+    Detail: ({ game, mySeat }) => (
+      <ol className="space-y-1 text-sm">
+        {game.rounds.map((r) => (
+          <li key={r.hand} className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line py-1.5 first:border-t-0">
+            <span className="font-bold text-mute">Hand {r.hand}</span>
+            <span className="text-ink">
+              {r.winners.map((w) => (w === mySeat ? 'You' : game.players[w]?.name)).join(' & ')} won {r.pot.toLocaleString()}
+              <span className="text-mute"> ({REASON[r.reason] ?? r.reason})</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    ),
+  },
+}
+
 /** Your result in one saved game: { rank, total, ranked, mySeat }. */
-const summarise = (game, meId) => {
+const summarise = (scoring, game, meId) => {
   const names = game.players.map((p) => p.name)
-  const totals = sumScores(game.rounds, game.players.length)
-  const ranked = rankPlayers(names, totals)
+  const ranked = rankPlayers(names, scoring.totals(game))
   const mySeat = game.players.findIndex((p) => p.id === meId)
   const mine = ranked.find((r) => r.index === mySeat)
   return { ranked, mySeat, rank: mine?.rank ?? null, total: mine?.score ?? 0 }
@@ -31,17 +62,18 @@ function Stat({ label, value }) {
   return (
     <div className="rounded-xl bg-base/60 px-3 py-3 text-center">
       <div className="text-xs font-bold text-mute">{label}</div>
-      <div className="text-xl font-extrabold tabular-nums text-ink">{value}</div>
+      <div className="truncate text-xl font-extrabold tabular-nums text-ink">{value}</div>
     </div>
   )
 }
 
-function GameRow({ game, meId }) {
+function GameRow({ game, meId, scoring, unit }) {
   const [open, setOpen] = useState(false)
-  const { ranked, mySeat, rank, total } = summarise(game, meId)
+  const { ranked, mySeat, rank, total } = summarise(scoring, game, meId)
   const winners = ranked.filter((r) => r.rank === 1)
   const won = rank === 1
   const bodyId = `history-${game.id}`
+  const Detail = scoring.Detail
 
   return (
     <li className="overflow-hidden rounded-2xl border border-line bg-surface/80">
@@ -57,10 +89,10 @@ function GameRow({ game, meId }) {
         <span className="min-w-0 flex-1">
           <span className="block truncate font-bold text-ink">
             {won ? (winners.length > 1 ? 'Shared win' : 'You won') : `${winners.map((w) => w.name).join(' & ')} won`}
-            <span className="font-semibold text-mute"> · you {formatScore(total)}</span>
+            <span className="font-semibold text-mute"> · you {scoring.format(total)}</span>
           </span>
           <span className="block truncate text-xs text-mute">
-            {when(game.finished_at)} · {game.rounds.length} of {game.total_rounds} rounds{game.ended_early ? ' (ended early)' : ''} · Room {game.room_code}
+            {when(game.finished_at)} · {game.rounds.length} of {game.total_rounds} {unit}s{game.ended_early ? ' (ended early)' : ''} · Room {game.room_code}
           </span>
         </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} className="flex-shrink-0 text-mute">
@@ -86,11 +118,11 @@ function GameRow({ game, meId }) {
                     <Avatar name={name} seat={index} size="sm" />
                     <span className="font-bold text-ink">{index === mySeat ? 'You' : name}</span>
                     {game.players[index]?.bot && <span className="text-xs text-faint">(bot)</span>}
-                    <span className={`font-extrabold tabular-nums ${score < 0 ? 'text-danger' : 'text-ink'}`}>{formatScore(score)}</span>
+                    <span className={`font-extrabold tabular-nums ${score < 0 ? 'text-danger' : 'text-ink'}`}>{scoring.format(score)}</span>
                   </li>
                 ))}
               </ol>
-              <ScoreTable state={{ players: game.players, rounds: game.rounds, totalRounds: game.total_rounds }} mySeat={mySeat} />
+              <Detail game={game} mySeat={mySeat} />
             </div>
           </motion.div>
         )}
@@ -99,25 +131,27 @@ function GameRow({ game, meId }) {
   )
 }
 
-/** Call Break online > History: the games your account finished, newest first. */
-export default function OnlineHistoryView() {
+/** An online game > History: the games your account finished, newest first. */
+export default function OnlineHistoryView({ gameId = 'callbreak' }) {
+  const game = GAMES[gameId]
+  const scoring = SCORING[gameId]
   const me = useOnlineStore((s) => s.me)
-  const history = useOnlineStore((s) => s.history)
+  const history = useOnlineStore((s) => s.history[gameId] ?? null)
   const error = useOnlineStore((s) => s.historyError)
   const load = useOnlineStore((s) => s.loadHistory)
   const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
-    if (history === null) load()
-  }, [history, load])
+    if (history === null) load(gameId)
+  }, [history, load, gameId])
 
   const refresh = async () => {
     setRefreshing(true)
-    await load()
+    await load(gameId)
     setRefreshing(false)
   }
 
-  const results = (history ?? []).map((g) => summarise(g, me.id))
+  const results = (history ?? []).map((g) => summarise(scoring, g, me.id))
   const wins = results.filter((r) => r.rank === 1).length
   const best = results.length ? Math.max(...results.map((r) => r.total)) : null
 
@@ -125,7 +159,7 @@ export default function OnlineHistoryView() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <BackHome to="onlineGames" label="Back to online games" />
-        <GameTabs />
+        <GameTabs gameId={gameId} />
       </div>
       <AccountBar />
 
@@ -134,7 +168,7 @@ export default function OnlineHistoryView() {
           <div>
             <h1 className="flex items-center gap-3 text-3xl text-ink">
               <FiClock className="h-8 w-8 flex-shrink-0 text-accent" aria-hidden="true" />
-              Call Break history
+              {game.name} history
             </h1>
             <p className="mt-2 text-mute">Every online game you finished, saved to your account.</p>
           </div>
@@ -147,7 +181,7 @@ export default function OnlineHistoryView() {
             <Stat label="Games" value={results.length} />
             <Stat label="Wins" value={wins} />
             <Stat label="Win rate" value={`${Math.round((wins / results.length) * 100)}%`} />
-            <Stat label="Best score" value={formatScore(best)} />
+            <Stat label={scoring.best} value={scoring.format(best)} />
           </div>
         )}
       </section>
@@ -168,8 +202,8 @@ export default function OnlineHistoryView() {
         </div>
       ) : (
         <ul className="space-y-3">
-          {history.map((game) => (
-            <GameRow key={game.id} game={game} meId={me.id} />
+          {history.map((g) => (
+            <GameRow key={g.id} game={g} meId={me.id} scoring={scoring} unit={game.unit} />
           ))}
         </ul>
       )}
