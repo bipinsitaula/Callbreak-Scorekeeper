@@ -7,6 +7,7 @@ import { LeaderboardView, PlayView, SettingsView, SetupView } from './components
 import HubView from './components/HubView'
 import BlackjackTable from './blackjack/BlackjackTable'
 import BlackjackRecord from './blackjack/BlackjackRecord'
+import OnlineView from './online/OnlineView'
 import { GameOverModal } from './components/GameOver'
 import CardArt from './components/CardArt'
 import RulesPanel from './components/RulesPanel'
@@ -19,6 +20,7 @@ const VIEWS = {
   leaderboard: LeaderboardView,
   blackjack: BlackjackTable,
   record: BlackjackRecord,
+  online: OnlineView,
   settings: SettingsView,
 }
 

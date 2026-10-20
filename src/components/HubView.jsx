@@ -3,12 +3,18 @@ import { RiCoinsLine } from 'react-icons/ri'
 import { GiSpades } from 'react-icons/gi'
 import { useGameStore } from '../store'
 import { useBlackjackStore } from '../blackjack/store'
+import { useOnlineStore } from '../online/store'
 import { isGameComplete } from '../utils/helpers'
 import CardArt from './CardArt'
 import PlayingCard from '../blackjack/PlayingCard'
 
 const ACE = { id: 'hub-a', rank: 'A', suit: 'spades' }
 const KING = { id: 'hub-k', rank: 'K', suit: 'hearts' }
+const ONLINE_HAND = [
+  { id: 'hub-os-a', rank: 'A', suit: 'spades' },
+  { id: 'hub-os-k', rank: 'K', suit: 'spades' },
+  { id: 'hub-oh-q', rank: 'Q', suit: 'hearts' },
+]
 
 function GameCard({ title, kind, description, points, action, onClick, art, status }) {
   return (
@@ -47,6 +53,7 @@ export default function HubView() {
   const setView = useGameStore((s) => s.setView)
   const inProgress = useGameStore((s) => s.started && !isGameComplete(s.currentRound, s.totalRounds))
   const chips = useBlackjackStore((s) => s.bankroll)
+  const onlineCode = useOnlineStore((s) => s.code)
 
   return (
     <div className="space-y-6">
@@ -60,7 +67,7 @@ export default function HubView() {
             </span>
           </h1>
           <p className="mt-3 text-base text-mute sm:text-lg">
-            Keep score for a real game of Call Break, or play blackjack against the dealer. Both work offline.
+            Keep score for a real game of Call Break, play it online with friends, or play blackjack against the dealer.
           </p>
         </div>
       </section>
@@ -75,6 +82,22 @@ export default function HubView() {
           status={inProgress ? 'Game in progress' : undefined}
           onClick={() => setView(inProgress ? 'play' : 'setup')}
           art={<CardArt className="h-40 w-64" />}
+        />
+        <GameCard
+          kind="Play on screen with friends"
+          title="Call Break online"
+          description="Everyone plays on their own phone. Type your name and a room code to sit down; the app shuffles, deals, checks the rules and keeps score."
+          points={['Join with a name and a room code', 'Shuffled and dealt on screen', 'Bids, tricks and scores handled for you']}
+          action={onlineCode ? 'Back to the table' : 'Play online'}
+          status={onlineCode ? `At table ${onlineCode}` : undefined}
+          onClick={() => setView('online')}
+          art={
+            <div className="flex">
+              {ONLINE_HAND.map((card, i) => (
+                <PlayingCard key={card.id} card={card} index={i} />
+              ))}
+            </div>
+          }
         />
         <GameCard
           kind="Play on screen"

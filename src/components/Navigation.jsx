@@ -1,5 +1,5 @@
 import { FaGamepad, FaTrophy } from 'react-icons/fa'
-import { FiBarChart2, FiGrid, FiHome, FiSettings } from 'react-icons/fi'
+import { FiBarChart2, FiGrid, FiHome, FiSettings, FiUsers } from 'react-icons/fi'
 import { GiCardAceSpades } from 'react-icons/gi'
 import { useGameStore } from '../store'
 
@@ -11,9 +11,11 @@ const NAV = {
   hub: [
     HOME,
     { id: 'setup', label: 'Call Break', icon: FaGamepad },
+    { id: 'online', label: 'Online', icon: FiUsers },
     { id: 'blackjack', label: 'Blackjack', icon: GiCardAceSpades },
     SETTINGS,
   ],
+  online: [HOME, { id: 'online', label: 'Online table', icon: FiUsers }, SETTINGS],
   callbreak: [
     HOME,
     { id: 'setup', label: 'New game', icon: FiGrid },

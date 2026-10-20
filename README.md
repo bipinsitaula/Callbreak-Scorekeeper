@@ -21,11 +21,18 @@ Call Break Scorekeeper is a modern, fully-featured companion app for tracking bi
 ✅ **Accessible** - Focus-trapped dialogs, Esc to close, live-region toasts, reduced-motion support
 ✅ **Dark/Light theme** - Follows the OS by default
 
-## Card Table: two games
+## Card Table: three games
 
-The app opens on a Home hub with two games.
+The app opens on a Home hub with three games.
 
 - **Call Break** - a scorekeeper for a physical deck (everything described above).
+- **Call Break online** - the real game played on screen, each player on their own device.
+  - One player creates a room and shares the 5-letter code (or an invite link, `?room=CODE`); the others join by typing their name and the code. 2 to 5 players, 4 is the classic game; the host picks 1, 3, 5, 7 or 10 rounds.
+  - Every deal opens with a riffle-shuffle animation, then the cards are dealt one at a time clockwise from the dealer's left. Bids and cards are entered on screen, and finished tricks fly to their winner.
+  - Rules are enforced: follow suit and beat the winning card if you can; with no card of the led suit you must play a spade, over-trumping if you can. Spades are trump; scoring is the same as the scorekeeper.
+  - Refreshing, or rejoining from another device with the same code and name, puts you back in your seat.
+  - In the waiting room the host can switch any empty seat to a bot (and back), and close the room so no one new can join. Bots bid and play on their own; the host's browser makes their moves (or the first player online, if the host is away).
+  - Logic lives in `src/online/engine.js` (pure, unit-tested); `src/online/room.js` talks to Supabase.
 - **Blackjack** - a playable table against the dealer with play-money chips.
   - Hit, stand, double, split, insurance (2:1, when the dealer shows an ace) and late surrender (half the bet back); blackjack pays 3:2; the dealer stands on all 17s.
   - Cards come from a 6-deck shoe shuffled with `crypto.getRandomValues` and a Fisher-Yates shuffle with rejection sampling (no modulo bias), then reshuffled when about 75% is dealt.
@@ -118,12 +125,17 @@ callbreak/
    ```
    Output in `dist/` folder
 
-5. **Run the tests**
+5. **Online play (Supabase)**
+   - Create a Supabase project and run `supabase/migrations/20261020000000_callbreak_rooms.sql` in its SQL editor (or `supabase db push` with the CLI). It creates the `callbreak_rooms` table, its row-level security policies, and adds it to realtime.
+   - Copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Project Settings > API), then restart `npm run dev`. Set the same two variables on your host (Vercel, Netlify…) for production builds.
+   - Players join without signing in, so anyone who has a room's code can read that room's row, including the other hands. The app only ever shows you your own cards, which is fine for games among friends but is not cheat-proof.
+
+6. **Run the tests**
    ```bash
    npm test
    ```
 
-6. **Preview production build**
+7. **Preview production build**
    ```bash
    npm run preview
    ```
@@ -329,7 +341,7 @@ Issues or questions? Please open a GitHub issue with:
 - [x] Offline PWA support
 - [x] Export game history to CSV
 - [x] Game statistics dashboard
-- [ ] Multiplayer over network
+- [x] Multiplayer over network (online Call Break)
 - [ ] Tournament bracket mode
 - [ ] Custom player avatars
 - [ ] Sound effects and haptics

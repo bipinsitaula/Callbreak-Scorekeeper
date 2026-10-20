@@ -40,6 +40,7 @@ export default function RulesPanel({ onClose }) {
             <li>• If you cannot follow suit, you must play a spade (trump) if you have one.</li>
             <li>• If no spade and no matching suit, play any card.</li>
             <li>• Higher trump beats lower trump.</li>
+            <li>• If you can beat the winning card with a card you are allowed to play, you must (the online table enforces this).</li>
           </ul>
         </>
       ),
@@ -53,7 +54,11 @@ export default function RulesPanel({ onClose }) {
             <li>• Minimum bid: <strong className="text-ink">1</strong></li>
             <li>• Maximum bid: <strong className="text-ink">{maxBid}</strong></li>
             <li>• Bids are made in turn order, starting left of the dealer.</li>
-            <li>• Total bids may not exceed {cardsPerPlayer} (the tricks available).</li>
+            {section === 'online' ? (
+              <li>• At the online table any bid from 1 to {maxBid} is allowed, whatever the others bid.</li>
+            ) : (
+              <li>• Total bids may not exceed {cardsPerPlayer} (the tricks available).</li>
+            )}
           </ul>
         </>
       ),
