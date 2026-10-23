@@ -28,11 +28,13 @@ const VIEWS = {
   onlineHistory: () => <OnlineHistoryView gameId="callbreak" />,
   teenpatti: () => <OnlineView gameId="teenpatti" />,
   teenpattiHistory: () => <OnlineHistoryView gameId="teenpatti" />,
+  jutpatti: () => <OnlineView gameId="jutpatti" />,
+  jutpattiHistory: () => <OnlineHistoryView gameId="jutpatti" />,
   settings: SettingsView,
 }
 
 // Online screens need a signed-in account.
-const NEEDS_ACCOUNT = new Set(['onlineGames', 'online', 'onlineHistory', 'teenpatti', 'teenpattiHistory'])
+const NEEDS_ACCOUNT = new Set(['onlineGames', 'online', 'onlineHistory', 'teenpatti', 'teenpattiHistory', 'jutpatti', 'jutpattiHistory'])
 
 const isTyping = (el) => el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 

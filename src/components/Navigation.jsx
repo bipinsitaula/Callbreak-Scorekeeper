@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { FaGamepad, FaTrophy } from 'react-icons/fa'
 import { FiBarChart2, FiChevronDown, FiClock, FiGlobe, FiGrid, FiHome, FiPlay, FiSettings, FiUsers } from 'react-icons/fi'
-import { GiCardAceSpades, GiCardKingHearts } from 'react-icons/gi'
+import { GiCardAceSpades, GiCardKingHearts, GiCardJoker } from 'react-icons/gi'
 import { useGameStore } from '../store'
 
 const HOME = { id: 'hub', label: 'Home', icon: FiHome }
@@ -34,6 +34,16 @@ const ONLINE = {
       children: [
         { id: 'teenpatti', label: 'Play', icon: FiPlay },
         { id: 'teenpattiHistory', label: 'History', icon: FiClock },
+      ],
+    },
+    {
+      id: 'jutpatti',
+      group: 'online-jutpatti',
+      label: 'Jut Patti',
+      icon: GiCardJoker,
+      children: [
+        { id: 'jutpatti', label: 'Play', icon: FiPlay },
+        { id: 'jutpattiHistory', label: 'History', icon: FiClock },
       ],
     },
   ],

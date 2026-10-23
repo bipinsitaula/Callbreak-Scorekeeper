@@ -3,6 +3,7 @@ import { useGameStore } from '../store'
 import { getCardsPerPlayer, getMaxBid, getRemainingCards, getVariantNotes } from '../utils/helpers'
 import Modal from './Modal'
 import { BOOT, MAX_STAKE, START_CHIPS } from '../online/teenpatti'
+import { HAND_SIZE, WIN_POINTS } from '../online/juttpatti'
 
 /** Rules & guide, shown as a slide-in drawer from the navbar "?" button on every screen size. */
 export default function RulesPanel({ onClose }) {
@@ -252,8 +253,62 @@ export default function RulesPanel({ onClose }) {
     },
   ]
 
+  const jutPattiSections = [
+    {
+      title: 'About Jut Patti',
+      content: `Jut Patti is a pairing game for 2 to 4 players with a standard 52-card deck. Each player gets ${HAND_SIZE} cards and races to turn them into pairs.`,
+    },
+    {
+      title: 'Setting up',
+      content: (
+        <ul className="ml-4 space-y-1">
+          <li>• Everyone is dealt {HAND_SIZE} cards face down.</li>
+          <li>• One card from the stock is turned up. Every card exactly one rank higher is a <strong className="text-ink">joker</strong> for the round (a King makes Aces jokers, an Ace makes 2s jokers).</li>
+          <li>• The rest of the stock stays face down; discards go in a face-up pile beside it.</li>
+        </ul>
+      ),
+    },
+    {
+      title: 'Your turn',
+      content: (
+        <ol className="ml-4 list-decimal space-y-1">
+          <li>Draw one card, from the stock or the top of the discard pile. You now hold {HAND_SIZE + 1}.</li>
+          <li>Discard one card face up on the pile.</li>
+        </ol>
+      ),
+    },
+    {
+      title: 'Pairs and jokers',
+      content: 'A pair is two cards of the same rank, like 8♠ and 8♦. A joker pairs with any card, so don’t throw one away lightly. Two jokers also make a pair.',
+    },
+    {
+      title: 'Winning a round',
+      content: `Seven cards can’t all pair, so the winning hand is three pairs plus one spare card. When your ${HAND_SIZE + 1} cards hold three pairs, discard a spare and declare. You can’t throw back the card you just took from the pile.`,
+    },
+    {
+      title: 'Scoring',
+      content: `The winner of a round scores ${WIN_POINTS} points. Everyone else loses a point for each card they hold that isn’t in a pair. The most points after the last round wins.`,
+    },
+    {
+      title: 'Tips',
+      content: (
+        <ul className="ml-4 space-y-1">
+          <li>• Watch the discard pile: it shows which ranks your opponents aren’t collecting.</li>
+          <li>• Every discard is a gift. Avoid throwing a rank the player after you just picked up.</li>
+          <li>• Don’t sit on a lone card of the joker rank when you could pair it off.</li>
+        </ul>
+      ),
+    },
+  ]
+
   const sections =
-    view === 'teenpatti' || view === 'teenpattiHistory' ? teenPattiSections : section === 'blackjack' ? blackjackSections : callBreakSections
+    view === 'jutpatti' || view === 'jutpattiHistory'
+      ? jutPattiSections
+      : view === 'teenpatti' || view === 'teenpattiHistory'
+        ? teenPattiSections
+        : section === 'blackjack'
+          ? blackjackSections
+          : callBreakSections
 
   return (
     <Modal

@@ -10,6 +10,7 @@ import GameTabs from './GameTabs'
 import { GAMES } from './games'
 import { ScoreTable } from './ResultsDialogs'
 import { START_CHIPS } from './teenpatti'
+import { formatPoints } from './juttpatti'
 import { useOnlineStore } from './store'
 
 const when = (iso) => {
@@ -48,6 +49,23 @@ const SCORING = {
     ),
   },
 }
+
+const SCORING_JUTPATTI = {
+  totals: (g) => sumScores(g.rounds, g.players.length),
+  format: formatPoints,
+  best: 'Best score',
+  Detail: ({ game, mySeat }) => (
+    <ol className="space-y-1 text-sm">
+      {game.rounds.map((r) => (
+        <li key={r.round} className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line py-1.5 first:border-t-0">
+          <span className="font-bold text-mute">Round {r.round}</span>
+          <span className="text-ink">{r.winner === mySeat ? 'You' : game.players[r.winner]?.name} declared three pairs</span>
+        </li>
+      ))}
+    </ol>
+  ),
+}
+SCORING.jutpatti = SCORING_JUTPATTI
 
 /** Your result in one saved game: { rank, total, ranked, mySeat }. */
 const summarise = (scoring, game, meId) => {

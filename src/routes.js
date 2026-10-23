@@ -16,12 +16,14 @@ const ROUTES = [
   ['onlineHistory', 'online/callbreak/history'],
   ['teenpatti', 'online/teenpatti'],
   ['teenpattiHistory', 'online/teenpatti/history'],
+  ['jutpatti', 'online/jutpatti'],
+  ['jutpattiHistory', 'online/jutpatti/history'],
   ['settings', 'settings'],
 ]
 
 // A table: /online/<game>/<room code>. Each game's table screen is its own view.
-const ROOM = /^online\/(callbreak|teenpatti)\/([a-z0-9]{4,8})$/i
-const TABLE_VIEW = { callbreak: 'online', teenpatti: 'teenpatti' }
+const ROOM = /^online\/(callbreak|teenpatti|jutpatti)\/([a-z0-9]{4,8})$/i
+const TABLE_VIEW = { callbreak: 'online', teenpatti: 'teenpatti', jutpatti: 'jutpatti' }
 /** Views that carry a room code in their URL. */
 export const ROOM_VIEWS = new Set(Object.values(TABLE_VIEW))
 

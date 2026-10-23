@@ -6,6 +6,7 @@
 import { getCardsPerPlayer } from '../utils/helpers'
 import * as CB from './engine'
 import * as TP from './teenpatti'
+import * as JP from './juttpatti'
 
 export const GAMES = {
   callbreak: {
@@ -51,6 +52,28 @@ export const GAMES = {
     end: (s, id) => TP.endTeenPatti(s, id),
     describe: (n) => `${n} players, ${TP.START_CHIPS.toLocaleString()} chips each, boot ${TP.BOOT}.`,
     blurb: 'Three cards each, play chips, and as much bluffing as you dare. Bet blind or seen, raise, pack, or call for a show.',
+  },
+  jutpatti: {
+    id: 'jutpatti',
+    name: 'Jut Patti',
+    view: 'jutpatti',
+    historyView: 'jutpattiHistory',
+    path: 'jutpatti',
+    minSeats: JP.JP_MIN_SEATS,
+    maxSeats: JP.JP_MAX_SEATS,
+    classicSeats: 4,
+    unit: 'round',
+    options: JP.ROUND_OPTIONS,
+    defaultOption: JP.DEFAULT_ROUNDS,
+    optionOf: (s) => s.totalRounds,
+    played: (s) => s.rounds.length,
+    createState: (host, option) => JP.createJutPattiState(host, option),
+    setOption: (s, id, v) => JP.setTotalRounds(s, id, v),
+    start: (s, id) => JP.startJutPatti(s, id),
+    restart: (s, id) => JP.restartJutPatti(s, id),
+    end: (s, id) => JP.endJutPatti(s, id),
+    describe: (n) => `${n} players, ${JP.HAND_SIZE} cards each.`,
+    blurb: 'Draw and discard to turn your seven cards into three pairs. The card above the one turned up is wild, so guard your jokers.',
   },
 }
 

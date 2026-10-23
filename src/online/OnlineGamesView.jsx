@@ -5,12 +5,14 @@ import PlayingCard from '../blackjack/PlayingCard'
 import { useGameStore } from '../store'
 import { GAMES, gameOf } from './games'
 import { BOOT, START_CHIPS } from './teenpatti'
+import { HAND_SIZE } from './juttpatti'
 import { useOnlineStore } from './store'
 import { AccountBar } from './AccountGate'
 
 const hand = (prefix, cards) => cards.map(([rank, suit]) => ({ id: `${prefix}-${suit}-${rank}`, rank, suit }))
 const CALL_BREAK_HAND = hand('og-cb', [['A', 'spades'], ['K', 'spades'], ['Q', 'hearts']])
 const TEEN_PATTI_HAND = hand('og-tp', [['A', 'hearts'], ['A', 'clubs'], ['A', 'diamonds']])
+const JUT_PATTI_HAND = hand('og-jp', [['8', 'spades'], ['8', 'diamonds'], ['Q', 'hearts']])
 
 const Fan = ({ cards }) => (
   <div className="flex">
@@ -50,6 +52,16 @@ export default function OnlineGamesView() {
       ...atTable('teenpatti'),
       view: GAMES.teenpatti.view,
       art: <Fan cards={TEEN_PATTI_HAND} />,
+    },
+    {
+      id: 'jutpatti',
+      kind: `${GAMES.jutpatti.minSeats} to ${GAMES.jutpatti.maxSeats} players · Pairs and jokers`,
+      title: 'Jut Patti',
+      description: 'Draw one, discard one, and turn your seven cards into three pairs before anyone else. The card above the turned-up one is wild.',
+      points: [`${HAND_SIZE} cards each, 3 pairs plus a spare wins`, 'Jokers pair with anything', 'Bots, chat and round-by-round history'],
+      ...atTable('jutpatti'),
+      view: GAMES.jutpatti.view,
+      art: <Fan cards={JUT_PATTI_HAND} />,
     },
   ]
 

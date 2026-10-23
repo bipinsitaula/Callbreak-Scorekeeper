@@ -46,6 +46,11 @@ The app opens on a Home hub with three games.
   - The host picks 5, 10, 20 or 30 hands; most chips at the end wins. Rooms, chat, bots, accounts and history are shared with Call Break.
   - Rules live in `src/online/teenpatti.js` (pure, unit-tested); per-game settings are in `src/online/games.js`. Run `supabase/migrations/20261023000000_teen_patti.sql` to store Teen Patti history.
 
+- **Jut Patti online** - pairing game with 7 cards in the same online section (2 to 4 players).
+  - Draw from the stock or the discard pile, then discard. Three pairs plus one spare card wins the round; the card one rank above the turned-up card is a joker that pairs with anything.
+  - The round winner scores 10 and everyone else loses a point per unpaired card; the host picks 3, 5, 7 or 10 rounds. Rooms, chat, bots, accounts and history are shared with the other online games.
+  - Rules live in `src/online/juttpatti.js` (pure, unit-tested); per-game settings are in `src/online/games.js`. Run `supabase/migrations/20261024000000_jut_patti.sql` to store Jut Patti history.
+
 ## Tech Stack
 
 - **React 18** - UI framework

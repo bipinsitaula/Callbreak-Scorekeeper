@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FiCopy, FiLink, FiLoader, FiLock, FiPlay, FiShare2, FiUnlock, FiUsers } from 'react-icons/fi'
 import { FaRobot } from 'react-icons/fa'
-import { GiCardKingHearts, GiSpades } from 'react-icons/gi'
+import { GiCardJoker, GiCardKingHearts, GiSpades } from 'react-icons/gi'
 import BackHome from '../components/BackHome'
 import Avatar from '../components/Avatar'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -21,10 +21,11 @@ import NoEntryDialog from './NoEntryDialog'
 import SeatToggle from './SeatToggle'
 import OnlineTable from './OnlineTable'
 import TeenPattiTable from './TeenPattiTable'
+import JutPattiTable from './JutPattiTable'
 import { useOnlineStore } from './store'
 
-const ICONS = { callbreak: GiSpades, teenpatti: GiCardKingHearts }
-const TABLES = { callbreak: OnlineTable, teenpatti: TeenPattiTable }
+const ICONS = { callbreak: GiSpades, teenpatti: GiCardKingHearts, jutpatti: GiCardJoker }
+const TABLES = { callbreak: OnlineTable, teenpatti: TeenPattiTable, jutpatti: JutPattiTable }
 
 /** An online game: join screen, then the waiting room, then that game's table. */
 export default function OnlineView({ gameId = 'callbreak' }) {
